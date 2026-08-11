@@ -46,3 +46,107 @@ body {
   flex: 1;
   padding: 25px;
 }
+
+.syncdoc-editor {
+  display: flex;
+  height: calc(100vh - 60px);
+}
+
+/* Document List */
+
+.document-list {
+  width: 280px;
+  border-right: 1px solid #ddd;
+  padding: 20px;
+  overflow-y: auto;
+}
+
+.document-list-header {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  margin-bottom: 20px;
+}
+
+.document-list-header h2 {
+  font-size: 20px;
+}
+
+.new-document-button {
+  padding: 10px;
+  border: none;
+  cursor: pointer;
+  border-radius: 6px;
+}
+
+/* Document Item */
+
+.document-items {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.document-item {
+  width: 100%;
+  padding: 12px;
+  text-align: left;
+  border: none;
+  cursor: pointer;
+  border-radius: 6px;
+  background: transparent;
+}
+
+.document-item.selected {
+  background: #eeeeee;
+}
+
+.document-title {
+  font-weight: 600;
+}
+
+.document-date {
+  margin-top: 5px;
+  font-size: 12px;
+}
+
+/* Editor */
+
+.editor {
+  flex: 1;
+  overflow-y: auto;
+  padding: 30px 50px;
+}
+
+.editor-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 20px;
+  border-bottom: 1px solid #ddd;
+}
+
+.editor-status {
+  font-size: 13px;
+}
+
+/* Blocks */
+
+.block-container {
+  max-width: 850px;
+  margin: 30px auto;
+}
+
+.editor-block {
+  padding: 10px 0;
+  margin-bottom: 10px;
+}
+
+.editor-block h1 {
+  font-size: 30px;
+}
+
+.editor-block p {
+  font-size: 16px;
+  line-height: 1.7;
+}
