@@ -150,3 +150,26 @@ body {
   font-size: 16px;
   line-height: 1.7;
 }
+
+.block-heading {
+  margin-bottom: 12px;
+}
+
+.block-paragraph {
+  font-size: 16px;
+  line-height: 1.7;
+  margin-bottom: 12px;
+}
+
+.block-code {
+  padding: 16px;
+  border-radius: 8px;
+  overflow-x: auto;
+  font-family: monospace;
+  margin-bottom: 12px;
+}
+
+.editor-block {
+  position: relative;
+  padding: 8px 0;
+}
