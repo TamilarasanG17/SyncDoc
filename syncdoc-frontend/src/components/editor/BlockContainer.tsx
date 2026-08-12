@@ -1,23 +1,23 @@
-function BlockContainer() {
+import type{ DocumentBlock } from "../../types/index";
+import BlockRenderer from "./blocks/BlockRenderer";
+
+interface BlockContainerProps {
+  blocks: DocumentBlock[];
+}
+
+function BlockContainer({
+  blocks,
+}: BlockContainerProps) {
   return (
     <div className="block-container">
-
-      <div className="editor-block">
-        <h1>Welcome to SyncDoc</h1>
-      </div>
-
-      <div className="editor-block">
-        <p>
-          This is a sample paragraph block.
-        </p>
-      </div>
-
-      <div className="editor-block">
-        <p>
-          Start writing your document here...
-        </p>
-      </div>
-
+      {blocks.map((block) => (
+        <div
+          className="editor-block"
+          key={block.id}
+        >
+          <BlockRenderer block={block} />
+        </div>
+      ))}
     </div>
   );
 }

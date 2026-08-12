@@ -1,7 +1,9 @@
 import { useState } from "react";
+
 import DocumentList from "../components/document/DocumentList";
 import EditorComponent from "../components/editor/Editor";
-import type{ Document } from "../types";
+
+import type{ Document, DocumentBlock } from "../types";
 
 const sampleDocuments: Document[] = [
   {
@@ -21,10 +23,42 @@ const sampleDocuments: Document[] = [
   },
 ];
 
+const sampleBlocks: DocumentBlock[] = [
+  {
+    id: "block-1",
+    type: "heading",
+    content: "Welcome to SyncDoc",
+    level: 1,
+  },
+  {
+    id: "block-2",
+    type: "paragraph",
+    content:
+      "SyncDoc is a structured collaborative document editor.",
+  },
+  {
+    id: "block-3",
+    type: "heading",
+    content: "Getting Started",
+    level: 2,
+  },
+  {
+    id: "block-4",
+    type: "paragraph",
+    content:
+      "Documents are represented using individual blocks.",
+  },
+  {
+    id: "block-5",
+    type: "code",
+    content:
+      "const document = { type: 'document' };",
+  },
+];
+
 function EditorPage() {
-  const [documents] = useState<Document[]>(
-    sampleDocuments
-  );
+  const [documents] =
+    useState<Document[]>(sampleDocuments);
 
   const [selectedDocumentId, setSelectedDocumentId] =
     useState("1");
@@ -53,6 +87,7 @@ function EditorPage() {
           selectedDocument?.title ||
           "Untitled Document"
         }
+        blocks={sampleBlocks}
       />
 
     </div>
