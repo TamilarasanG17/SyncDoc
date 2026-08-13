@@ -6,7 +6,13 @@ const documentSchema = new mongoose.Schema(
             type: String,
             required: true,
             trim: true
-        }
+        },
+        nodes: [
+            {
+                type: mongoose.Schema.Types.ObjectId,
+                ref: "Node"
+            }
+        ]
     },
     {
         timestamps: true
