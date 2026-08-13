@@ -1,4 +1,5 @@
 import type{ Document } from "../../types";
+
 import DocumentItem from "./DocumentItem";
 import NewDocumentButton from "./NewDocumentButton";
 
@@ -17,6 +18,7 @@ function DocumentList({
 }: DocumentListProps) {
   return (
     <div className="document-list">
+
       <div className="document-list-header">
         <h2>Documents</h2>
 
@@ -30,11 +32,16 @@ function DocumentList({
           <DocumentItem
             key={document.id}
             document={document}
-            selected={document.id === selectedDocumentId}
-            onClick={() => onSelectDocument(document.id)}
+            selected={
+              document.id === selectedDocumentId
+            }
+            onClick={() =>
+              onSelectDocument(document.id)
+            }
           />
         ))}
       </div>
+
     </div>
   );
 }

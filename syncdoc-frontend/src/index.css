@@ -173,3 +173,59 @@ body {
   position: relative;
   padding: 8px 0;
 }
+
+
+/* Documents Page */
+
+.documents-page {
+  width: 100%;
+}
+
+.documents-page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 30px;
+}
+
+.documents-page-header h1 {
+  margin-bottom: 8px;
+}
+
+.documents-page-header p {
+  color: #666;
+}
+
+.documents-grid {
+  display: grid;
+  grid-template-columns: repeat(
+    auto-fill,
+    minmax(250px, 1fr)
+  );
+  gap: 20px;
+}
+
+/* Document Card */
+
+.document-card {
+  padding: 20px;
+  border: 1px solid #ddd;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.document-card h3 {
+  margin-bottom: 10px;
+}
+
+.document-card p {
+  font-size: 13px;
+  margin-bottom: 20px;
+}
+
+.document-card button {
+  padding: 8px 15px;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+}
