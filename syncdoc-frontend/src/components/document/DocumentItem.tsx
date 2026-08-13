@@ -13,7 +13,9 @@ function DocumentItem({
 }: DocumentItemProps) {
   return (
     <button
-      className={`document-item ${selected ? "selected" : ""}`}
+      className={`document-item ${
+        selected ? "selected" : ""
+      }`}
       onClick={onClick}
     >
       <div className="document-title">
