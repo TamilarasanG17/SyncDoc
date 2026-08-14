@@ -1,4 +1,4 @@
-import type{ DocumentBlock } from "../../../types";
+import type { DocumentBlock } from "../../../types";
 
 import HeadingBlock from "./HeadingBlock";
 import ParagraphBlock from "./ParagraphBlock";
@@ -8,22 +8,37 @@ interface BlockRendererProps {
   block: DocumentBlock;
 }
 
-function BlockRenderer({
-  block,
-}: BlockRendererProps) {
-  switch (block.type) {
-    case "heading":
-      return <HeadingBlock block={block} />;
+function BlockRenderer({ block }: BlockRendererProps) {
+  const renderContent = () => {
+    switch (block.type) {
+      case "heading":
+        return <HeadingBlock block={block} />;
+      case "paragraph":
+        return <ParagraphBlock block={block} />;
+      case "code":
+        return <CodeBlock block={block} />;
+      default:
+        return null;
+    }
+  };
 
-    case "paragraph":
-      return <ParagraphBlock block={block} />;
+  const hasChildren = !!block.children && block.children.length > 0;
 
-    case "code":
-      return <CodeBlock block={block} />;
+  return (
+    <div className="ast-node" data-block-id={block.id}>
+      {renderContent()}
 
-    default:
-      return null;
-  }
+      {hasChildren && (
+        <div className="ast-node-children">
+          {block.children!.map((child) => (
+            <div className="editor-block" key={child.id}>
+              <BlockRenderer block={child} />
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
 
 export default BlockRenderer;
