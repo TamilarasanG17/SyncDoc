@@ -237,3 +237,29 @@ body {
   height: 100%;
   color: #666;
 }
+
+.block-heading-1 { font-size: 2rem; }
+.block-heading-2 { font-size: 1.6rem; }
+.block-heading-3 { font-size: 1.3rem; }
+.block-heading-4 { font-size: 1.15rem; }
+.block-heading-5 { font-size: 1rem; font-weight: 600; }
+.block-heading-6 { font-size: 0.9rem; font-weight: 600; color: #555; }
+
+.code-block-wrapper {
+  border: 1px solid #e2e2e2;
+  border-radius: 6px;
+  overflow: hidden;
+  margin: 8px 0;
+}
+
+.code-block-header {
+  background: #f3f3f3;
+  padding: 4px 10px;
+  font-size: 0.75rem;
+  color: #777;
+  border-bottom: 1px solid #e2e2e2;
+}
+
+.block-shell {
+  padding: 2px 0;
+}
