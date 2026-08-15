@@ -9,7 +9,13 @@ const nodeSchema = new mongoose.Schema(
         content: {
             type: String,
             default: ""
-        }
+        },
+        children: [
+            {
+                type: mongoose.Schema.Types.ObjectId,
+                ref: "Node"
+            }
+        ]
     },
     {
         timestamps: true
