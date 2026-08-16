@@ -263,3 +263,19 @@ body {
 .block-shell {
   padding: 2px 0;
 }
+
+.sync-status {
+  font-size: 0.75rem;
+  padding: 2px 10px;
+  border-radius: 12px;
+  font-weight: 500;
+}
+.sync-status-synced  { background: #e6f4ea; color: #1e7e34; }
+.sync-status-syncing { background: #fff4e5; color: #a15c00; }
+.sync-status-offline { background: #eee;    color: #666; }
+.sync-status-error   { background: #fdecea; color: #c0392b; }
+
+.not-found-page {
+  text-align: center;
+  padding: 60px 20px;
+}

@@ -13,3 +13,5 @@ export interface DocumentBlock {
   level?: number;
   children?: DocumentBlock[]; // NEW: nested AST child nodes
 }
+
+export type SyncStatus = "synced" | "syncing" | "offline" | "error";
