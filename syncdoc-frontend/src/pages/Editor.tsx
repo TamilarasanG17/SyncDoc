@@ -56,6 +56,7 @@ function EditorPage() {
       />
 
       <EditorComponent
+        documentId={selectedDocument.id}
         title={selectedDocument.title}
         blocks={selectedDocument.blocks}
       />

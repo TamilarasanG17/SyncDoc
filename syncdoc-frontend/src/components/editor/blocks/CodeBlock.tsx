@@ -1,4 +1,4 @@
-import type{ DocumentBlock } from "../../../types";
+import type { DocumentBlock } from "../../../types";
 
 interface CodeBlockProps {
   block: DocumentBlock;
@@ -6,9 +6,14 @@ interface CodeBlockProps {
 
 function CodeBlock({ block }: CodeBlockProps) {
   return (
-    <pre className="block-code">
-      <code>{block.content}</code>
-    </pre>
+    <div className="code-block-wrapper">
+      <div className="code-block-header">
+        <span>Code</span>
+      </div>
+      <pre className="block-code">
+        <code>{block.content}</code>
+      </pre>
+    </div>
   );
 }
 

@@ -1,15 +1,18 @@
+import { useDocumentSync } from "../../hooks/useDocumentSync";
+import SyncStatusBadge from "./SyncStatusBadge";
+
 interface EditorHeaderProps {
   title: string;
+  documentId: string;
 }
 
-function EditorHeader({ title }: EditorHeaderProps) {
+function EditorHeader({ title, documentId }: EditorHeaderProps) {
+  const { status } = useDocumentSync(documentId);
+
   return (
     <div className="editor-header">
       <h2>{title}</h2>
-
-      <span className="editor-status">
-        Saved
-      </span>
+      <SyncStatusBadge status={status} />
     </div>
   );
 }
