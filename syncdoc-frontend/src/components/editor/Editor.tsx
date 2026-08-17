@@ -1,5 +1,6 @@
 import EditorHeader from "./EditorHeader";
 import BlockContainer from "./BlockContainer";
+import { CollaborationProvider } from "../../collaboration/CollaborationContext";
 import type { DocumentBlock } from "../../types";
 
 interface EditorProps {
@@ -10,10 +11,12 @@ interface EditorProps {
 
 function Editor({ documentId, title, blocks }: EditorProps) {
   return (
-    <section className="editor">
-      <EditorHeader title={title} documentId={documentId} />
-      <BlockContainer blocks={blocks} />
-    </section>
+    <CollaborationProvider documentId={documentId}>
+      <section className="editor">
+        <EditorHeader title={title} documentId={documentId} />
+        <BlockContainer blocks={blocks} />
+      </section>
+    </CollaborationProvider>
   );
 }
 
