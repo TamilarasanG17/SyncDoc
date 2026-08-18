@@ -11,7 +11,7 @@ interface EditorProps {
 
 function Editor({ documentId, title, blocks }: EditorProps) {
   return (
-    <CollaborationProvider documentId={documentId}>
+    <CollaborationProvider key={documentId} documentId={documentId}>
       <section className="editor">
         <EditorHeader title={title} />
         <BlockContainer blocks={blocks} />

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { WebsocketProvider } from "y-websocket";
 
 import { getYDoc } from "./ydoc";
@@ -14,28 +14,26 @@ interface CollaborationProviderProps {
 export function CollaborationProvider({ documentId, children }: CollaborationProviderProps) {
   const ydoc = useMemo(() => getYDoc(documentId), [documentId]);
   const [status, setStatus] = useState<CollaborationStatus>("connecting");
-  const [provider, setProvider] = useState<WebsocketProvider | null>(null);
+  const providerRef = useRef<WebsocketProvider | null>(null);
 
   useEffect(() => {
-    setStatus("connecting");
-
     const wsProvider = new WebsocketProvider(WEBSOCKET_URL, documentId, ydoc);
+    providerRef.current = wsProvider;
 
     const handleStatus = ({ status: nextStatus }: { status: string }) => {
       setStatus(nextStatus as CollaborationStatus);
     };
 
     wsProvider.on("status", handleStatus);
-    setProvider(wsProvider);
 
     return () => {
       wsProvider.off("status", handleStatus);
       wsProvider.destroy();
-      setProvider(null);
+      providerRef.current = null;
     };
   }, [documentId, ydoc]);
 
-  const value: CollaborationState = { status, ydoc, provider };
+  const value: CollaborationState = { status, ydoc, providerRef };
 
   return (
     <CollaborationContext.Provider value={value}>{children}</CollaborationContext.Provider>
