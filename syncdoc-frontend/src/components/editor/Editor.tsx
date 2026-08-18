@@ -13,7 +13,7 @@ function Editor({ documentId, title, blocks }: EditorProps) {
   return (
     <CollaborationProvider documentId={documentId}>
       <section className="editor">
-        <EditorHeader title={title} documentId={documentId} />
+        <EditorHeader title={title} />
         <BlockContainer blocks={blocks} />
       </section>
     </CollaborationProvider>
