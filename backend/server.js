@@ -30,18 +30,27 @@ app.get("/", (req, res) => {
 
 /*
  * Create HTTP server from Express app.
- * WebSocket runs on the same server.
  */
 const server = http.createServer(app);
 
 /*
- * Store one Y.Doc for each collaborative document.
+ * Store one Y.Doc for each document.
  *
- * Key   = documentId
- * Value = Y.Doc
+ * documentId -> Y.Doc
  */
 const yDocuments = new Map();
 
+/*
+ * Store connected WebSocket clients
+ * for each document room.
+ *
+ * documentId -> Set<WebSocket>
+ */
+const documentRooms = new Map();
+
+/*
+ * Get or create Y.Doc for a document.
+ */
 const getYDocument = (documentId) => {
     if (!yDocuments.has(documentId)) {
         yDocuments.set(documentId, new Y.Doc());
@@ -52,6 +61,22 @@ const getYDocument = (documentId) => {
     }
 
     return yDocuments.get(documentId);
+};
+
+/*
+ * Get or create a collaborative room
+ * for a document.
+ */
+const getDocumentRoom = (documentId) => {
+    if (!documentRooms.has(documentId)) {
+        documentRooms.set(documentId, new Set());
+
+        console.log(
+            `Collaborative room created for document: ${documentId}`
+        );
+    }
+
+    return documentRooms.get(documentId);
 };
 
 /*
@@ -108,8 +133,19 @@ webSocketServer.on("connection", (webSocket) => {
 
     const yDocument = getYDocument(documentId);
 
+    /*
+     * Join the client to the document room.
+     */
+    const documentRoom = getDocumentRoom(documentId);
+
+    documentRoom.add(webSocket);
+
     console.log(
         `WebSocket connected for document: ${documentId}`
+    );
+
+    console.log(
+        `Clients in document room ${documentId}: ${documentRoom.size}`
     );
 
     /*
@@ -124,7 +160,7 @@ webSocketServer.on("connection", (webSocket) => {
     );
 
     /*
-     * Send the current Yjs document state
+     * Send current Yjs document state
      * to the newly connected client.
      */
     const currentState = Y.encodeStateAsUpdate(
@@ -145,8 +181,7 @@ webSocketServer.on("connection", (webSocket) => {
     webSocket.on("message", (message, isBinary) => {
         try {
             /*
-             * Ignore non-binary messages such as
-             * JSON connection messages.
+             * Ignore non-binary messages.
              */
             if (!isBinary) {
                 console.log(
@@ -158,8 +193,7 @@ webSocketServer.on("connection", (webSocket) => {
             }
 
             /*
-             * Convert incoming binary data
-             * into a Uint8Array for Yjs.
+             * Convert incoming data to Uint8Array.
              */
             const update = new Uint8Array(
                 message.buffer,
@@ -176,14 +210,13 @@ webSocketServer.on("connection", (webSocket) => {
             );
 
             /*
-             * Broadcast the update to all other
-             * clients connected to the same document.
+             * Broadcast update only to clients
+             * inside the same document room.
              */
-            webSocketServer.clients.forEach((client) => {
+            documentRoom.forEach((client) => {
                 if (
                     client !== webSocket &&
-                    client.readyState === 1 &&
-                    client.documentId === documentId
+                    client.readyState === 1
                 ) {
                     client.send(Buffer.from(update));
                 }
@@ -191,6 +224,10 @@ webSocketServer.on("connection", (webSocket) => {
 
             console.log(
                 `Yjs update processed for document: ${documentId}`
+            );
+
+            console.log(
+                `Update broadcast to ${documentRoom.size - 1} other client(s)`
             );
         } catch (error) {
             console.error(
@@ -204,9 +241,29 @@ webSocketServer.on("connection", (webSocket) => {
      * Handle WebSocket disconnection.
      */
     webSocket.on("close", () => {
+        /*
+         * Remove client from document room.
+         */
+        documentRoom.delete(webSocket);
+
         console.log(
             `WebSocket disconnected for document: ${documentId}`
         );
+
+        console.log(
+            `Clients remaining in document room ${documentId}: ${documentRoom.size}`
+        );
+
+        /*
+         * Remove empty room.
+         */
+        if (documentRoom.size === 0) {
+            documentRooms.delete(documentId);
+
+            console.log(
+                `Collaborative room removed for document: ${documentId}`
+            );
+        }
     });
 
     /*
