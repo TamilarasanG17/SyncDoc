@@ -1,7 +1,24 @@
 import EditorHeader from "./EditorHeader";
 import BlockContainer from "./BlockContainer";
 import { CollaborationProvider } from "../../collaboration/CollaborationContext";
+import { useSyncedBlocks } from "../../hooks/useSyncedBlocks";
 import type { DocumentBlock } from "../../types";
+
+interface EditorBodyProps {
+  title: string;
+  blocks: DocumentBlock[];
+}
+
+function EditorBody({ title, blocks }: EditorBodyProps) {
+  const syncedBlocks = useSyncedBlocks(blocks);
+
+  return (
+    <section className="editor">
+      <EditorHeader title={title} />
+      <BlockContainer blocks={syncedBlocks} />
+    </section>
+  );
+}
 
 interface EditorProps {
   documentId: string;
@@ -12,10 +29,7 @@ interface EditorProps {
 function Editor({ documentId, title, blocks }: EditorProps) {
   return (
     <CollaborationProvider key={documentId} documentId={documentId}>
-      <section className="editor">
-        <EditorHeader title={title} />
-        <BlockContainer blocks={blocks} />
-      </section>
+      <EditorBody title={title} blocks={blocks} />
     </CollaborationProvider>
   );
 }
