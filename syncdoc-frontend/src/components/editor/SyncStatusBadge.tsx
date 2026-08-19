@@ -5,8 +5,8 @@ interface SyncStatusBadgeProps {
 }
 
 const statusLabels: Record<SyncStatus, string> = {
-  synced: "Saved",
-  syncing: "Saving...",
+  synced: "Live",
+  syncing: "Connecting...",
   offline: "Offline",
   error: "Sync error",
 };

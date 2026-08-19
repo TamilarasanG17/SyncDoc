@@ -1,13 +1,15 @@
-import { useEffect, useState } from "react";
 import type { SyncStatus } from "../types";
+import { useCollaboration } from "../collaboration/useCollaboration";
+import type { CollaborationStatus } from "../collaboration/types";
 
+const statusMap: Record<CollaborationStatus, SyncStatus> = {
+  connecting: "syncing",
+  connected: "synced",
+  disconnected: "offline",
+  error: "error",
+};
 
-export function useDocumentSync(documentId: string | undefined) {
-  const [status] = useState<SyncStatus>("synced");
-
-  useEffect(() => {
-    // placeholder for the future WebSocket connection
-  }, [documentId]);
-
-  return { status };
+export function useDocumentSync() {
+  const { status } = useCollaboration();
+  return { status: statusMap[status] };
 }
