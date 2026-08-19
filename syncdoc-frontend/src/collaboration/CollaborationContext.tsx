@@ -20,6 +20,12 @@ export function CollaborationProvider({ documentId, children }: CollaborationPro
     const wsProvider = new WebsocketProvider(WEBSOCKET_URL, documentId, ydoc);
     providerRef.current = wsProvider;
 
+    // ---- ADD THIS BLOCK ----
+    if (import.meta.env.DEV) {
+      (window as unknown as { __ydoc?: typeof ydoc }).__ydoc = ydoc;
+    }
+    // -------------------------
+
     const handleStatus = ({ status: nextStatus }: { status: string }) => {
       setStatus(nextStatus as CollaborationStatus);
     };
