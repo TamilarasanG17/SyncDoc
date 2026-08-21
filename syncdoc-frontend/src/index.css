@@ -279,3 +279,30 @@ body {
   text-align: center;
   padding: 60px 20px;
 }
+
+.block-shell {
+  border: 2px solid transparent;
+  border-radius: 4px;
+  position: relative;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+
+.block-shell:focus {
+  border-color: #457b9d;
+}
+
+.block-shell-locked {
+  border-style: dashed;
+}
+
+.block-lock-badge {
+  position: absolute;
+  top: -10px;
+  right: 4px;
+  font-size: 0.65rem;
+  color: #fff;
+  padding: 1px 6px;
+  border-radius: 8px;
+  z-index: 1;
+}
