@@ -1,4 +1,5 @@
 const WebSocket = require("ws");
+const Y = require("yjs");
 
 const DOCUMENT_A = "6a81b9c3c832d2aa2a83f3e4";
 const DOCUMENT_B = "different-document-123";
@@ -112,6 +113,85 @@ describe("Collaborative document rooms", () => {
             expect(
                 clientCReceivedUpdate
             ).toBe(false);
+        },
+        10000
+    );
+
+    test(
+        "synchronizes Yjs updates between clients in the same document",
+        async () => {
+            const senderDocument = new Y.Doc();
+            const receiverDocument = new Y.Doc();
+
+            const text = senderDocument.getText("content");
+
+            text.insert(
+                0,
+                "Hello from Client A"
+            );
+
+            const update = Y.encodeStateAsUpdate(
+                senderDocument
+            );
+
+            const receivedUpdate = new Promise(
+                (resolve, reject) => {
+                    const timeout = setTimeout(() => {
+                        reject(
+                            new Error(
+                                "Timed out waiting for Yjs update"
+                            )
+                        );
+                    }, 5000);
+
+                    clientB.on(
+                        "message",
+                        (message, isBinary) => {
+                            if (!isBinary) {
+                                return;
+                            }
+
+                            clearTimeout(timeout);
+
+                            try {
+                                const incomingUpdate =
+                                    new Uint8Array(
+                                        message.buffer,
+                                        message.byteOffset,
+                                        message.byteLength
+                                    );
+
+                                Y.applyUpdate(
+                                    receiverDocument,
+                                    incomingUpdate
+                                );
+
+                                resolve();
+                            } catch (error) {
+                                reject(error);
+                            }
+                        }
+                    );
+                }
+            );
+
+            /*
+             * Client A sends a real Yjs update.
+             */
+            clientA.send(
+                Buffer.from(update)
+            );
+
+            await receivedUpdate;
+
+            const synchronizedText =
+                receiverDocument
+                    .getText("content")
+                    .toString();
+
+            expect(
+                synchronizedText
+            ).toBe("Hello from Client A");
         },
         10000
     );
