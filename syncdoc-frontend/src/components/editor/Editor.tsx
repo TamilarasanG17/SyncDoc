@@ -2,6 +2,7 @@ import EditorHeader from "./EditorHeader";
 import BlockContainer from "./BlockContainer";
 import { CollaborationProvider } from "../../collaboration/CollaborationContext";
 import { useSyncedBlocks } from "../../hooks/useSyncedBlocks";
+import { useLocalAwareness } from "../../hooks/useLocalAwareness";
 import type { DocumentBlock } from "../../types";
 
 interface EditorBodyProps {
@@ -11,11 +12,12 @@ interface EditorBodyProps {
 
 function EditorBody({ title, blocks }: EditorBodyProps) {
   const syncedBlocks = useSyncedBlocks(blocks);
+  const { setEditingBlock, localUserId } = useLocalAwareness();
 
   return (
     <section className="editor">
-      <EditorHeader title={title} />
-      <BlockContainer blocks={syncedBlocks} />
+      <EditorHeader title={title} localUserId={localUserId} />
+      <BlockContainer blocks={syncedBlocks} localUserId={localUserId} onEditBlock={setEditingBlock} />
     </section>
   );
 }
