@@ -1,17 +1,22 @@
 import { useDocumentSync } from "../../hooks/useDocumentSync";
 import SyncStatusBadge from "./SyncStatusBadge";
+import PresenceBar from "./PresenceBar";
 
 interface EditorHeaderProps {
   title: string;
+  localUserId: string;
 }
 
-function EditorHeader({ title }: EditorHeaderProps) {
+function EditorHeader({ title, localUserId }: EditorHeaderProps) {
   const { status } = useDocumentSync();
 
   return (
     <div className="editor-header">
       <h2>{title}</h2>
-      <SyncStatusBadge status={status} />
+      <div className="editor-header-right">
+        <PresenceBar localUserId={localUserId} />
+        <SyncStatusBadge status={status} />
+      </div>
     </div>
   );
 }
