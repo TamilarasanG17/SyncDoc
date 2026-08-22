@@ -11,13 +11,18 @@ interface EditorBodyProps {
 }
 
 function EditorBody({ title, blocks }: EditorBodyProps) {
-  const syncedBlocks = useSyncedBlocks(blocks);
+  const { blocks: syncedBlocks, updateBlockContent } = useSyncedBlocks(blocks);
   const { setEditingBlock, localUserId } = useLocalAwareness();
 
   return (
     <section className="editor">
       <EditorHeader title={title} localUserId={localUserId} />
-      <BlockContainer blocks={syncedBlocks} localUserId={localUserId} onEditBlock={setEditingBlock} />
+      <BlockContainer
+        blocks={syncedBlocks}
+        localUserId={localUserId}
+        onEditBlock={setEditingBlock}
+        onChangeBlockContent={updateBlockContent}
+      />
     </section>
   );
 }

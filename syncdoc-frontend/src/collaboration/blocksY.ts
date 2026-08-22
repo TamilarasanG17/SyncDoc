@@ -36,3 +36,20 @@ export function yMapToBlock(map: Y.Map<unknown>): DocumentBlock {
 export function yArrayToBlocks(array: Y.Array<Y.Map<unknown>>): DocumentBlock[] {
   return array.toArray().map(yMapToBlock);
 }
+
+export function findBlockYMap(
+  array: Y.Array<Y.Map<unknown>>,
+  blockId: string
+): Y.Map<unknown> | null {
+  for (const map of array.toArray()) {
+    if (map.get("id") === blockId) return map;
+
+    const children = map.get("children") as Y.Array<Y.Map<unknown>> | undefined;
+    if (children) {
+      const found = findBlockYMap(children, blockId);
+      if (found) return found;
+    }
+  }
+
+  return null;
+}

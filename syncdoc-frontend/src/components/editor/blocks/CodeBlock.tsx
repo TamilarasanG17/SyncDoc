@@ -1,18 +1,18 @@
-import type { DocumentBlock } from "../../../types";
+import EditableField from "../EditableField";
+import type { BlockComponentProps } from "./blockRegistry";
 
-interface CodeBlockProps {
-  block: DocumentBlock;
-}
-
-function CodeBlock({ block }: CodeBlockProps) {
+function CodeBlock({ block, onChangeContent }: BlockComponentProps) {
   return (
     <div className="code-block-wrapper">
       <div className="code-block-header">
         <span>Code</span>
       </div>
-      <pre className="block-code">
-        <code>{block.content}</code>
-      </pre>
+      <EditableField
+        as="textarea"
+        value={block.content}
+        onChange={onChangeContent}
+        className="block-code-input"
+      />
     </div>
   );
 }

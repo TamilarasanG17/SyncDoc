@@ -1,16 +1,17 @@
-import type { DocumentBlock } from "../../../types";
+import EditableField from "../EditableField";
+import type { BlockComponentProps } from "./blockRegistry";
 
-interface HeadingBlockProps {
-  block: DocumentBlock;
-}
-
-const headingTags = ["h1", "h2", "h3", "h4", "h5", "h6"] as const;
-
-function HeadingBlock({ block }: HeadingBlockProps) {
+function HeadingBlock({ block, onChangeContent }: BlockComponentProps) {
   const level = Math.min(Math.max(block.level ?? 1, 1), 6);
-  const Tag = headingTags[level - 1];
 
-  return <Tag className={`block-heading block-heading-${level}`}>{block.content}</Tag>;
+  return (
+    <EditableField
+      as="input"
+      value={block.content}
+      onChange={onChangeContent}
+      className={`block-heading block-heading-${level}`}
+    />
+  );
 }
 
 export default HeadingBlock;

@@ -1,16 +1,14 @@
-import type{ DocumentBlock } from "../../../types";
+import EditableField from "../EditableField";
+import type { BlockComponentProps } from "./blockRegistry";
 
-interface ParagraphBlockProps {
-  block: DocumentBlock;
-}
-
-function ParagraphBlock({
-  block,
-}: ParagraphBlockProps) {
+function ParagraphBlock({ block, onChangeContent }: BlockComponentProps) {
   return (
-    <p className="block-paragraph">
-      {block.content}
-    </p>
+    <EditableField
+      as="textarea"
+      value={block.content}
+      onChange={onChangeContent}
+      className="block-paragraph"
+    />
   );
 }
 

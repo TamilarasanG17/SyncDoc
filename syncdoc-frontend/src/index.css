@@ -353,3 +353,30 @@ body {
   background: #2a9d8f;
   border: 1px solid #fff;
 }
+
+.block-heading,
+.block-paragraph,
+.block-code-input {
+  border: none;
+  background: transparent;
+  width: 100%;
+  font-family: inherit;
+  outline: none;
+  padding: 2px 0;
+  box-sizing: border-box;
+}
+
+.block-paragraph {
+  resize: vertical;
+  font-size: 1rem;
+  line-height: 1.5;
+  min-height: 1.6em;
+}
+
+.block-code-input {
+  font-family: "Fira Code", "Courier New", monospace;
+  font-size: 0.85rem;
+  resize: vertical;
+  min-height: 60px;
+  padding: 8px;
+}
