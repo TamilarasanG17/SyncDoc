@@ -15,7 +15,19 @@ const nodeSchema = new mongoose.Schema(
                 type: mongoose.Schema.Types.ObjectId,
                 ref: "Node"
             }
-        ]
+        ],
+        locked: {
+            type: Boolean,
+            default: false
+        },
+        lockedBy: {
+            type: String,
+            default: null
+        },
+        lockedAt: {
+            type: Date,
+            default: null
+        }
     },
     {
         timestamps: true
