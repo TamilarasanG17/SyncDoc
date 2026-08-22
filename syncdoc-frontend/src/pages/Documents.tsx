@@ -3,8 +3,8 @@ import { useNavigate } from "react-router-dom";
 
 import DocumentCard from "../components/document/DocumentCard";
 import Loading from "../components/common/Loading";
-import { fetchDocuments } from "../services/api";
-import type { ASTDocument } from "../data/astDocuments";
+import { fetchDocuments, fetchDocumentById, createDocument, createNode } from "../services/api";
+import type { ASTDocument } from "../services/api";
 
 function Documents() {
   const navigate = useNavigate();
@@ -30,8 +30,17 @@ function Documents() {
     navigate(`/editor/${id}`);
   };
 
-  const handleCreateDocument = () => {
-    console.log("Create new document");
+  const handleCreateDocument = async () => {
+    try {
+      const newDoc = await createDocument("Untitled Document");
+      await createNode(newDoc.id, { type: "heading", content: "Untitled Document" });
+
+      const refreshed = await fetchDocumentById(newDoc.id);
+      setDocuments((prev) => [...prev, refreshed ?? newDoc]);
+      navigate(`/editor/${newDoc.id}`);
+    } catch (error) {
+      console.error("Could not create document:", error);
+    }
   };
 
   if (loading) {
