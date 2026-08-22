@@ -1,8 +1,8 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import * as Y from "yjs";
 
 import { useCollaboration } from "../collaboration/useCollaboration";
-import { blockToYMap, yArrayToBlocks } from "../collaboration/blocksY";
+import { blockToYMap, yArrayToBlocks, findBlockYMap } from "../collaboration/blocksY";
 import type { DocumentBlock } from "../types";
 
 export function useSyncedBlocks(initialBlocks: DocumentBlock[]) {
@@ -18,15 +18,10 @@ export function useSyncedBlocks(initialBlocks: DocumentBlock[]) {
       setBlocks(yArrayToBlocks(sharedBlocks));
     };
 
-    // Fires on any change anywhere in the nested block tree — top-level
-    // inserts/removes AND edits inside a child block's Y.Map.
     sharedBlocks.observeDeep(handleChange);
 
     const provider = providerRef.current;
 
-    // Only seed the shared doc once we know whether a remote copy already
-    // exists. Seeding before the initial sync completes risks two clients
-    // both writing their own copy at once.
     const seedIfEmpty = () => {
       if (sharedBlocks.length === 0) {
         ydoc.transact(() => {
@@ -48,5 +43,17 @@ export function useSyncedBlocks(initialBlocks: DocumentBlock[]) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sharedBlocks, providerRef]);
 
-  return blocks;
+  const updateBlockContent = useCallback(
+    (blockId: string, content: string) => {
+      const map = findBlockYMap(sharedBlocks, blockId);
+      if (!map) return;
+
+      ydoc.transact(() => {
+        map.set("content", content);
+      });
+    },
+    [sharedBlocks, ydoc]
+  );
+
+  return { blocks, updateBlockContent };
 }

@@ -7,6 +7,7 @@ import CodeBlock from "./CodeBlock";
 
 export interface BlockComponentProps {
   block: DocumentBlock;
+  onChangeContent: (content: string) => void;
 }
 
 export const blockRegistry: Record<BlockType, ComponentType<BlockComponentProps>> = {
