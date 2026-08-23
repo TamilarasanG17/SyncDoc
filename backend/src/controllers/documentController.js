@@ -20,7 +20,17 @@ const createDocument = async (req, res) => {
 
 const getDocuments = async (req, res) => {
     try {
-        const documents = await Document.find().sort({ createdAt: -1 });
+        const documents = await Document.find()
+            .populate({
+                path: "nodes",
+                populate: {
+                    path: "children",
+                    populate: {
+                        path: "children"
+                    }
+                }
+            })
+            .sort({ createdAt: -1 });
 
         res.status(200).json(documents);
     } catch (error) {
@@ -33,15 +43,16 @@ const getDocuments = async (req, res) => {
 
 const getDocumentById = async (req, res) => {
     try {
-        const document = await Document.findById(req.params.id).populate({
-            path: "nodes",
-            populate: {
-                path: "children",
+        const document = await Document.findById(req.params.id)
+            .populate({
+                path: "nodes",
                 populate: {
-                    path: "children"
+                    path: "children",
+                    populate: {
+                        path: "children"
+                    }
                 }
-            }
-        });
+            });
 
         if (!document) {
             return res.status(404).json({
@@ -62,7 +73,9 @@ const createNodeForDocument = async (req, res) => {
     try {
         const { type, content, children } = req.body;
 
-        const document = await Document.findById(req.params.documentId);
+        const document = await Document.findById(
+            req.params.documentId
+        );
 
         if (!document) {
             return res.status(404).json({
@@ -77,6 +90,7 @@ const createNodeForDocument = async (req, res) => {
         });
 
         document.nodes.push(node._id);
+
         await document.save();
 
         res.status(201).json({

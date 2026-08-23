@@ -1,6 +1,10 @@
 const WebSocket = require("ws");
 const Y = require("yjs");
 
+const encoding = require("lib0/encoding");
+const decoding = require("lib0/decoding");
+const syncProtocol = require("y-protocols/sync");
+
 const DOCUMENT_A =
     "6a81b9c3c832d2aa2a83f3e4";
 
@@ -38,8 +42,12 @@ const closeClient = (
 ) => {
     if (
         client &&
-        client.readyState ===
-            WebSocket.OPEN
+        (
+            client.readyState ===
+                WebSocket.OPEN ||
+            client.readyState ===
+                WebSocket.CONNECTING
+        )
     ) {
         client.close();
     }
@@ -52,23 +60,6 @@ const waitForJsonMessage = (
 ) => {
     return new Promise(
         (resolve, reject) => {
-            const timer =
-                setTimeout(
-                    () => {
-                        client.off(
-                            "message",
-                            handler
-                        );
-
-                        reject(
-                            new Error(
-                                `Timed out waiting for ${type}`
-                            )
-                        );
-                    },
-                    timeout
-                );
-
             const handler = (
                 message,
                 isBinary
@@ -105,20 +96,6 @@ const waitForJsonMessage = (
                 }
             };
 
-            client.on(
-                "message",
-                handler
-            );
-        }
-    );
-};
-
-const waitForBinaryMessage = (
-    client,
-    timeout = 5000
-) => {
-    return new Promise(
-        (resolve, reject) => {
             const timer =
                 setTimeout(
                     () => {
@@ -129,13 +106,35 @@ const waitForBinaryMessage = (
 
                         reject(
                             new Error(
-                                "Timed out waiting for binary update"
+                                `Timed out waiting for ${type}`
                             )
                         );
                     },
                     timeout
                 );
 
+            client.on(
+                "message",
+                handler
+            );
+        }
+    );
+};
+
+/*
+ * Wait for a Yjs protocol message.
+ *
+ * IMPORTANT:
+ * @y/websocket-server sends Yjs protocol
+ * messages, not raw Y.encodeStateAsUpdate()
+ * buffers.
+ */
+const waitForYjsMessage = (
+    client,
+    timeout = 5000
+) => {
+    return new Promise(
+        (resolve, reject) => {
             const handler = (
                 message,
                 isBinary
@@ -153,14 +152,115 @@ const waitForBinaryMessage = (
                     handler
                 );
 
-                resolve(message);
+                resolve(
+                    new Uint8Array(
+                        message
+                    )
+                );
             };
+
+            const timer =
+                setTimeout(
+                    () => {
+                        client.off(
+                            "message",
+                            handler
+                        );
+
+                        reject(
+                            new Error(
+                                "Timed out waiting for Yjs message"
+                            )
+                        );
+                    },
+                    timeout
+                );
 
             client.on(
                 "message",
                 handler
             );
         }
+    );
+};
+
+/*
+ * Send a Yjs update using the protocol
+ * expected by @y/websocket-server.
+ */
+const sendYjsUpdate = (
+    client,
+    update
+) => {
+    const encoder =
+        encoding.createEncoder();
+
+    /*
+     * Message type 0 = sync
+     */
+    encoding.writeVarUint(
+        encoder,
+        0
+    );
+
+    /*
+     * Sync update message.
+     */
+    syncProtocol.writeUpdate(
+        encoder,
+        update
+    );
+
+    client.send(
+        Buffer.from(
+            encoding.toUint8Array(
+                encoder
+            )
+        )
+    );
+};
+
+/*
+ * Apply a received Yjs protocol message
+ * to a local Y.Doc.
+ */
+const applyYjsMessage = (
+    doc,
+    message
+) => {
+    const decoder =
+        decoding.createDecoder(
+            message
+        );
+
+    const messageType =
+        decoding.readVarUint(
+            decoder
+        );
+
+    /*
+     * 0 = Yjs sync message
+     */
+    if (
+        messageType !== 0
+    ) {
+        return;
+    }
+
+    /*
+     * Read sync message.
+     *
+     * The encoder is only required because
+     * readSyncMessage can generate a reply.
+     */
+    const replyEncoder =
+        encoding.createEncoder();
+
+    syncProtocol.readSyncMessage(
+        decoder,
+        replyEncoder,
+        doc,
+        null
     );
 };
 
@@ -325,6 +425,9 @@ describe(
             10000
         );
 
+        /*
+         * DAY 3
+         */
         test(
             "synchronizes Yjs updates between clients in the same document",
             async () => {
@@ -334,42 +437,47 @@ describe(
                 const receiver =
                     new Y.Doc();
 
-                const text =
-                    sender.getText(
+                sender
+                    .getText(
                         "content"
+                    )
+                    .insert(
+                        0,
+                        "Hello from Client A"
                     );
-
-                text.insert(
-                    0,
-                    "Hello from Client A"
-                );
 
                 const update =
                     Y.encodeStateAsUpdate(
                         sender
                     );
 
+                /*
+                 * Start waiting BEFORE sending.
+                 */
                 const received =
-                    waitForBinaryMessage(
+                    waitForYjsMessage(
                         clientB
                     );
 
-                clientA.send(
-                    Buffer.from(
-                        update
-                    )
+                /*
+                 * Send update using the
+                 * Yjs sync protocol.
+                 */
+                sendYjsUpdate(
+                    clientA,
+                    update
                 );
 
-                const message =
+                const receivedMessage =
                     await received;
 
-                Y.applyUpdate(
+                /*
+                 * Apply the received Yjs
+                 * protocol message.
+                 */
+                applyYjsMessage(
                     receiver,
-                    new Uint8Array(
-                        message.buffer,
-                        message.byteOffset,
-                        message.byteLength
-                    )
+                    receivedMessage
                 );
 
                 expect(
@@ -641,7 +749,7 @@ describe(
                             (
                                 result
                             ) =>
-                                waitForBinaryMessage(
+                                waitForYjsMessage(
                                     result.client,
                                     10000
                                 )
@@ -652,12 +760,9 @@ describe(
                         result,
                         index
                     ) => {
-                        result.client.send(
-                            Buffer.from(
-                                updates[
-                                    index
-                                ]
-                            )
+                        sendYjsUpdate(
+                            result.client,
+                            updates[index]
                         );
                     }
                 );
@@ -781,16 +886,15 @@ describe(
                         .slice(1)
                         .map(
                             (result) =>
-                                waitForBinaryMessage(
+                                waitForYjsMessage(
                                     result.client,
                                     10000
                                 )
                         );
 
-                clients[0].client.send(
-                    Buffer.from(
-                        update
-                    )
+                sendYjsUpdate(
+                    clients[0].client,
+                    update
                 );
 
                 await Promise.all(
