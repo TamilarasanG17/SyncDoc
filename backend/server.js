@@ -5,7 +5,10 @@ const cors = require("cors");
 const http = require("http");
 const crypto = require("crypto");
 const { WebSocketServer } = require("ws");
-const Y = require("yjs");
+
+const {
+  setupWSConnection,
+} = require("@y/websocket-server/utils");
 
 const connectDB = require("./src/config/db");
 const documentRoutes = require("./src/routes/documentRoutes");
@@ -14,647 +17,575 @@ require("./src/models/node");
 
 const app = express();
 
+/*
+|--------------------------------------------------------------------------
+| Express Configuration
+|--------------------------------------------------------------------------
+*/
+
 app.use(
-    cors({
-        origin: "http://localhost:5173"
-    })
+  cors({
+    origin: "http://localhost:5173",
+  })
 );
 
 app.use(express.json());
 
-app.use("/api/documents", documentRoutes);
+app.use(
+  "/api/documents",
+  documentRoutes
+);
 
 const PORT = process.env.PORT || 5000;
 
 app.get("/", (req, res) => {
-    res.send("SyncDoc Backend Running");
+  res.send("SyncDoc Backend Running");
 });
 
 const server = http.createServer(app);
 
 /*
- * documentId -> Y.Doc
- */
-const yDocuments = new Map();
+|--------------------------------------------------------------------------
+| Collaborative State
+|--------------------------------------------------------------------------
+|
+| documentId -> Set<WebSocket>
+|
+|--------------------------------------------------------------------------
+*/
 
-/*
- * documentId -> Set<WebSocket>
- */
 const documentRooms = new Map();
 
 /*
- * documentId -> Map<blockId, clientId>
- */
+|--------------------------------------------------------------------------
+| Block Lock State
+|--------------------------------------------------------------------------
+|
+| documentId -> Map<blockId, clientId>
+|
+|--------------------------------------------------------------------------
+*/
+
 const documentBlockLocks = new Map();
 
 /*
- * Get or create Y.Doc.
- */
-const getYDocument = (documentId) => {
-    if (!yDocuments.has(documentId)) {
-        yDocuments.set(
-            documentId,
-            new Y.Doc()
-        );
+|--------------------------------------------------------------------------
+| Get Document Room
+|--------------------------------------------------------------------------
+*/
 
-        console.log(
-            `Y.Doc created for document: ${documentId}`
-        );
-    }
-
-    return yDocuments.get(documentId);
-};
-
-/*
- * Get or create document room.
- */
 const getDocumentRoom = (documentId) => {
-    if (!documentRooms.has(documentId)) {
-        documentRooms.set(
-            documentId,
-            new Set()
-        );
+  if (!documentRooms.has(documentId)) {
+    documentRooms.set(
+      documentId,
+      new Set()
+    );
 
-        console.log(
-            `Collaborative room created for document: ${documentId}`
-        );
-    }
+    console.log(
+      `Collaborative room created for document: ${documentId}`
+    );
+  }
 
-    return documentRooms.get(documentId);
+  return documentRooms.get(documentId);
 };
 
 /*
- * Get or create block-lock state.
- */
+|--------------------------------------------------------------------------
+| Get Block Locks
+|--------------------------------------------------------------------------
+*/
+
 const getDocumentBlockLocks = (documentId) => {
-    if (!documentBlockLocks.has(documentId)) {
-        documentBlockLocks.set(
-            documentId,
-            new Map()
-        );
-    }
+  if (!documentBlockLocks.has(documentId)) {
+    documentBlockLocks.set(
+      documentId,
+      new Map()
+    );
+  }
 
-    return documentBlockLocks.get(documentId);
+  return documentBlockLocks.get(documentId);
 };
 
 /*
- * Send JSON message to one client.
- */
-const sendJson = (
-    webSocket,
-    payload
-) => {
-    if (webSocket.readyState === 1) {
-        webSocket.send(
-            JSON.stringify(payload)
-        );
-    }
+|--------------------------------------------------------------------------
+| Send JSON
+|--------------------------------------------------------------------------
+|
+| NOTE:
+| This is used only for custom control messages.
+| We DO NOT send these messages on the Yjs WebSocket.
+|
+|--------------------------------------------------------------------------
+*/
+
+const sendJson = (webSocket, payload) => {
+  if (
+    webSocket.readyState ===
+    webSocket.OPEN
+  ) {
+    webSocket.send(
+      JSON.stringify(payload)
+    );
+  }
 };
 
 /*
- * Broadcast JSON message to all
- * clients in the same document room.
- */
+|--------------------------------------------------------------------------
+| Broadcast JSON
+|--------------------------------------------------------------------------
+*/
+
 const broadcastJson = (
-    documentRoom,
-    payload
+  documentRoom,
+  payload
 ) => {
-    const message =
-        JSON.stringify(payload);
+  const message =
+    JSON.stringify(payload);
 
-    documentRoom.forEach((client) => {
-        if (client.readyState === 1) {
-            client.send(message);
-        }
-    });
+  documentRoom.forEach(
+    (client) => {
+      if (
+        client.readyState ===
+        client.OPEN
+      ) {
+        client.send(message);
+      }
+    }
+  );
 };
 
 /*
- * Release all locks owned by a client.
- */
+|--------------------------------------------------------------------------
+| Release Client Locks
+|--------------------------------------------------------------------------
+*/
+
 const releaseClientLocks = (
-    documentId,
-    clientId,
-    documentRoom
+  documentId,
+  clientId,
+  documentRoom
 ) => {
-    const blockLocks =
-        documentBlockLocks.get(
-            documentId
+  const blockLocks =
+    documentBlockLocks.get(
+      documentId
+    );
+
+  if (!blockLocks) {
+    return;
+  }
+
+  const releasedBlocks = [];
+
+  blockLocks.forEach(
+    (owner, blockId) => {
+      if (owner === clientId) {
+        blockLocks.delete(
+          blockId
         );
 
-    if (!blockLocks) {
-        return;
+        releasedBlocks.push(
+          blockId
+        );
+      }
     }
+  );
 
-    const releasedBlocks = [];
+  /*
+  |--------------------------------------------------------------------------
+  | Notify remaining clients
+  |--------------------------------------------------------------------------
+  */
 
-    blockLocks.forEach(
-        (owner, blockId) => {
-            if (owner === clientId) {
-                blockLocks.delete(
-                    blockId
-                );
+  releasedBlocks.forEach(
+    (blockId) => {
+      broadcastJson(
+        documentRoom,
+        {
+          type:
+            "block:unlocked",
 
-                releasedBlocks.push(
-                    blockId
-                );
-            }
+          blockId,
+
+          clientId,
+
+          reason:
+            "client-disconnected",
         }
-    );
-
-    releasedBlocks.forEach(
-        (blockId) => {
-            broadcastJson(
-                documentRoom,
-                {
-                    type:
-                        "block:unlocked",
-                    blockId,
-                    clientId,
-                    reason:
-                        "client-disconnected"
-                }
-            );
-        }
-    );
+      );
+    }
+  );
 };
 
 /*
- * WebSocket server.
- */
+|--------------------------------------------------------------------------
+| Yjs WebSocket Server
+|--------------------------------------------------------------------------
+*/
+
 const webSocketServer =
-    new WebSocketServer({
-        noServer: true
-    });
+  new WebSocketServer({
+    noServer: true,
+  });
 
 /*
- * WebSocket upgrade routing.
- *
- * ws://localhost:5000/ws/documents/:documentId
- */
+|--------------------------------------------------------------------------
+| WebSocket Upgrade
+|--------------------------------------------------------------------------
+|
+| Frontend:
+|
+| ws://localhost:5000/ws/documents/:documentId
+|
+|--------------------------------------------------------------------------
+*/
+
 server.on(
-    "upgrade",
-    (request, socket, head) => {
-        const url = new URL(
-            request.url,
-            `http://${request.headers.host}`
+  "upgrade",
+  (
+    request,
+    socket,
+    head
+  ) => {
+    try {
+      const url = new URL(
+        request.url,
+        `http://${request.headers.host}`
+      );
+
+      /*
+      |--------------------------------------------------------------------------
+      | CORRECT WebSocket route
+      |--------------------------------------------------------------------------
+      */
+
+      const match =
+        url.pathname.match(
+          /^\/ws\/documents\/([^/]+)$/
         );
 
-        const match =
-            url.pathname.match(
-                /^\/ws\/documents\/([^/]+)$/
-            );
+      if (!match) {
+        console.log(
+          `Rejected WebSocket path: ${url.pathname}`
+        );
 
-        if (!match) {
-            socket.destroy();
-            return;
+        socket.destroy();
+
+        return;
+      }
+
+      const documentId =
+        match[1];
+
+      console.log(
+        `WebSocket upgrade request for document: ${documentId}`
+      );
+
+      /*
+      |--------------------------------------------------------------------------
+      | Upgrade connection
+      |--------------------------------------------------------------------------
+      */
+
+      webSocketServer.handleUpgrade(
+        request,
+        socket,
+        head,
+        (webSocket) => {
+          webSocket.documentId =
+            documentId;
+
+          webSocketServer.emit(
+            "connection",
+            webSocket,
+            request
+          );
         }
+      );
+    } catch (error) {
+      console.error(
+        "WebSocket upgrade error:",
+        error
+      );
 
-        const documentId =
-            match[1];
-
-        webSocketServer.handleUpgrade(
-            request,
-            socket,
-            head,
-            (webSocket) => {
-                webSocket.documentId =
-                    documentId;
-
-                webSocketServer.emit(
-                    "connection",
-                    webSocket,
-                    request
-                );
-            }
-        );
+      socket.destroy();
     }
+  }
 );
 
 /*
- * WebSocket connection.
- */
+|--------------------------------------------------------------------------
+| WebSocket Connection
+|--------------------------------------------------------------------------
+*/
+
 webSocketServer.on(
-    "connection",
-    (webSocket) => {
-        const documentId =
-            webSocket.documentId;
+  "connection",
+  (
+    webSocket,
+    request
+  ) => {
+    const documentId =
+      webSocket.documentId;
 
-        /*
-         * Give every connected client
-         * a unique identifier.
-         */
-        webSocket.clientId =
-            crypto.randomUUID();
+    /*
+    |--------------------------------------------------------------------------
+    | Unique Client ID
+    |--------------------------------------------------------------------------
+    */
 
-        const yDocument =
-            getYDocument(
-                documentId
-            );
+    webSocket.clientId =
+      crypto.randomUUID();
 
-        const documentRoom =
-            getDocumentRoom(
-                documentId
-            );
+    /*
+    |--------------------------------------------------------------------------
+    | Document Room
+    |--------------------------------------------------------------------------
+    */
 
-        const blockLocks =
-            getDocumentBlockLocks(
-                documentId
-            );
+    const documentRoom =
+      getDocumentRoom(
+        documentId
+      );
 
-        documentRoom.add(
-            webSocket
-        );
+    documentRoom.add(
+      webSocket
+    );
 
-        console.log(
-            `WebSocket connected for document: ${documentId}`
-        );
+    /*
+    |--------------------------------------------------------------------------
+    | Block Locks
+    |--------------------------------------------------------------------------
+    */
 
-        console.log(
-            `Client ID: ${webSocket.clientId}`
-        );
+    const blockLocks =
+      getDocumentBlockLocks(
+        documentId
+      );
 
-        console.log(
-            `Clients in room: ${documentRoom.size}`
-        );
+    console.log(
+      `WebSocket connected for document: ${documentId}`
+    );
 
-        /*
-         * Connection confirmation.
-         */
-        sendJson(
-            webSocket,
-            {
-                type:
-                    "connection",
-                message:
-                    "SyncDoc WebSocket connected",
-                documentId,
-                clientId:
-                    webSocket.clientId
-            }
-        );
+    console.log(
+      `Client ID: ${webSocket.clientId}`
+    );
 
-        /*
-         * Send current block-lock state
-         * to newly connected client.
-         */
-        const currentLocks =
-            Array.from(
-                blockLocks.entries()
-            ).map(
-                ([blockId, clientId]) => ({
-                    blockId,
-                    clientId
-                })
-            );
+    console.log(
+      `Clients in room: ${documentRoom.size}`
+    );
 
-        sendJson(
-            webSocket,
-            {
-                type:
-                    "block:state",
-                locks:
-                    currentLocks
-            }
-        );
+    /*
+    |--------------------------------------------------------------------------
+    | Yjs Setup
+    |--------------------------------------------------------------------------
+    |
+    | IMPORTANT:
+    |
+    | This socket is a Yjs WebSocket.
+    |
+    | Do NOT send custom JSON messages such as:
+    |
+    | connection
+    | block:state
+    |
+    | because WebsocketProvider expects Yjs protocol
+    | messages on this connection.
+    |
+    |--------------------------------------------------------------------------
+    */
 
-        /*
-         * Send current Yjs state.
-         */
-        const currentState =
-            Y.encodeStateAsUpdate(
-                yDocument
-            );
+    try {
+      console.log(
+        `Before Yjs setup: ${documentId}`
+      );
 
-        if (currentState.length > 0) {
-            webSocket.send(
-                Buffer.from(
-                    currentState
-                )
-            );
+      setupWSConnection(
+        webSocket,
+        request,
+        {
+          docName:
+            documentId,
+
+          gc: true,
         }
+      );
 
-        /*
-         * Receive messages.
-         */
-        webSocket.on(
-            "message",
-            (message, isBinary) => {
-                try {
-                    /*
-                     * Binary = Yjs update.
-                     */
-                    if (isBinary) {
-                        const update =
-                            new Uint8Array(
-                                message.buffer,
-                                message.byteOffset,
-                                message.byteLength
-                            );
+      console.log(
+        `After Yjs setup: ${documentId}`
+      );
 
-                        /*
-                         * Apply update to
-                         * server Y.Doc.
-                         */
-                        Y.applyUpdate(
-                            yDocument,
-                            update
-                        );
+      console.log(
+        `Yjs synchronization enabled for document: ${documentId}`
+      );
 
-                        /*
-                         * Send update to
-                         * other clients in
-                         * same document.
-                         */
-                        documentRoom.forEach(
-                            (client) => {
-                                if (
-                                    client !==
-                                        webSocket &&
-                                    client.readyState ===
-                                        1
-                                ) {
-                                    client.send(
-                                        Buffer.from(
-                                            update
-                                        )
-                                    );
-                                }
-                            }
-                        );
+      console.log(
+        `WebSocket readyState: ${webSocket.readyState}`
+      );
+    } catch (error) {
+      console.error(
+        `Yjs setup error for document ${documentId}:`,
+        error
+      );
 
-                        return;
-                    }
+      if (
+        webSocket.readyState ===
+        webSocket.OPEN
+      ) {
+        webSocket.close();
+      }
 
-                    /*
-                     * Text = collaboration
-                     * control message.
-                     */
-                    const payload =
-                        JSON.parse(
-                            message.toString()
-                        );
-
-                    /*
-                     * =========================
-                     * BLOCK LOCK
-                     * =========================
-                     */
-                    if (
-                        payload.type ===
-                        "block:lock"
-                    ) {
-                        const blockId =
-                            payload.blockId;
-
-                        if (!blockId) {
-                            sendJson(
-                                webSocket,
-                                {
-                                    type:
-                                        "block:lock-denied",
-                                    reason:
-                                        "blockId is required"
-                                }
-                            );
-
-                            return;
-                        }
-
-                        const currentOwner =
-                            blockLocks.get(
-                                blockId
-                            );
-
-                        /*
-                         * Another client already
-                         * owns this block.
-                         */
-                        if (
-                            currentOwner &&
-                            currentOwner !==
-                                webSocket.clientId
-                        ) {
-                            sendJson(
-                                webSocket,
-                                {
-                                    type:
-                                        "block:lock-denied",
-                                    blockId,
-                                    lockedBy:
-                                        currentOwner
-                                }
-                            );
-
-                            return;
-                        }
-
-                        /*
-                         * Lock belongs to this client.
-                         */
-                        blockLocks.set(
-                            blockId,
-                            webSocket.clientId
-                        );
-
-                        broadcastJson(
-                            documentRoom,
-                            {
-                                type:
-                                    "block:locked",
-                                blockId,
-                                clientId:
-                                    webSocket.clientId,
-                                lockedAt:
-                                    new Date().toISOString()
-                            }
-                        );
-
-                        return;
-                    }
-
-                    /*
-                     * =========================
-                     * BLOCK UNLOCK
-                     * =========================
-                     */
-                    if (
-                        payload.type ===
-                        "block:unlock"
-                    ) {
-                        const blockId =
-                            payload.blockId;
-
-                        if (!blockId) {
-                            sendJson(
-                                webSocket,
-                                {
-                                    type:
-                                        "block:unlock-denied",
-                                    reason:
-                                        "blockId is required"
-                                }
-                            );
-
-                            return;
-                        }
-
-                        const currentOwner =
-                            blockLocks.get(
-                                blockId
-                            );
-
-                        /*
-                         * Only lock owner can
-                         * unlock the block.
-                         */
-                        if (
-                            currentOwner !==
-                            webSocket.clientId
-                        ) {
-                            sendJson(
-                                webSocket,
-                                {
-                                    type:
-                                        "block:unlock-denied",
-                                    blockId,
-                                    lockedBy:
-                                        currentOwner ||
-                                        null
-                                }
-                            );
-
-                            return;
-                        }
-
-                        blockLocks.delete(
-                            blockId
-                        );
-
-                        broadcastJson(
-                            documentRoom,
-                            {
-                                type:
-                                    "block:unlocked",
-                                blockId,
-                                clientId:
-                                    webSocket.clientId
-                            }
-                        );
-
-                        return;
-                    }
-
-                    /*
-                     * Unknown message.
-                     */
-                    sendJson(
-                        webSocket,
-                        {
-                            type:
-                                "error",
-                            message:
-                                "Unknown message type"
-                        }
-                    );
-                } catch (error) {
-                    console.error(
-                        "WebSocket message error:",
-                        error.message
-                    );
-
-                    sendJson(
-                        webSocket,
-                        {
-                            type:
-                                "error",
-                            message:
-                                "Invalid WebSocket message"
-                        }
-                    );
-                }
-            }
-        );
-
-        /*
-         * Client disconnected.
-         */
-        webSocket.on(
-            "close",
-            () => {
-                /*
-                 * Release client's locks.
-                 */
-                releaseClientLocks(
-                    documentId,
-                    webSocket.clientId,
-                    documentRoom
-                );
-
-                /*
-                 * Remove client from room.
-                 */
-                documentRoom.delete(
-                    webSocket
-                );
-
-                console.log(
-                    `WebSocket disconnected for document: ${documentId}`
-                );
-
-                console.log(
-                    `Clients remaining: ${documentRoom.size}`
-                );
-
-                /*
-                 * Remove empty room state.
-                 */
-                if (
-                    documentRoom.size ===
-                    0
-                ) {
-                    documentRooms.delete(
-                        documentId
-                    );
-
-                    documentBlockLocks.delete(
-                        documentId
-                    );
-
-                    console.log(
-                        `Room removed for document: ${documentId}`
-                    );
-                }
-            }
-        );
-
-        webSocket.on(
-            "error",
-            (error) => {
-                console.error(
-                    `WebSocket error for document ${documentId}:`,
-                    error.message
-                );
-            }
-        );
+      return;
     }
+
+    /*
+    |--------------------------------------------------------------------------
+    | IMPORTANT
+    |--------------------------------------------------------------------------
+    |
+    | We don't process Yjs binary messages here.
+    |
+    | setupWSConnection already handles:
+    |
+    | - SyncStep1
+    | - SyncStep2
+    | - document updates
+    | - awareness
+    |
+    |--------------------------------------------------------------------------
+    */
+
+    /*
+    |--------------------------------------------------------------------------
+    | DISCONNECT
+    |--------------------------------------------------------------------------
+    */
+
+    webSocket.on(
+      "close",
+      (
+        code,
+        reason
+      ) => {
+        console.log(
+          `WebSocket closed for document ${documentId}`
+        );
+
+        console.log(
+          `Close code: ${code}`
+        );
+
+        console.log(
+          `Close reason: ${reason.toString()}`
+        );
+
+        /*
+        |--------------------------------------------------------------------------
+        | Release locks
+        |--------------------------------------------------------------------------
+        */
+
+        releaseClientLocks(
+          documentId,
+          webSocket.clientId,
+          documentRoom
+        );
+
+        /*
+        |--------------------------------------------------------------------------
+        | Remove client
+        |--------------------------------------------------------------------------
+        */
+
+        documentRoom.delete(
+          webSocket
+        );
+
+        console.log(
+          `Clients remaining: ${documentRoom.size}`
+        );
+
+        /*
+        |--------------------------------------------------------------------------
+        | Remove empty room
+        |--------------------------------------------------------------------------
+        */
+
+        if (
+          documentRoom.size ===
+          0
+        ) {
+          documentRooms.delete(
+            documentId
+          );
+
+          documentBlockLocks.delete(
+            documentId
+          );
+
+          console.log(
+            `Room removed for document: ${documentId}`
+          );
+        }
+      }
+    );
+
+    /*
+    |--------------------------------------------------------------------------
+    | WebSocket Error
+    |--------------------------------------------------------------------------
+    */
+
+    webSocket.on(
+      "error",
+      (error) => {
+        console.error(
+          `WebSocket error for document ${documentId}:`,
+          error.message
+        );
+      }
+    );
+  }
 );
 
-const startServer = async () => {
-    await connectDB();
+/*
+|--------------------------------------------------------------------------
+| Start Server
+|--------------------------------------------------------------------------
+*/
 
-    server.listen(
+const startServer =
+  async () => {
+    try {
+      await connectDB();
+
+      server.listen(
         PORT,
         () => {
-            console.log(
-                `SyncDoc Backend running on port ${PORT}`
-            );
+          console.log(
+            `SyncDoc Backend running on port ${PORT}`
+          );
 
-            console.log(
-                `WebSocket endpoint: ws://localhost:${PORT}/ws/documents/:documentId`
-            );
+          console.log(
+            `WebSocket endpoint: ws://localhost:${PORT}/ws/documents/:documentId`
+          );
+
+          console.log(
+            "Yjs synchronization: enabled"
+          );
+
+          console.log(
+            "Block-level locking: enabled"
+          );
         }
-    );
-};
+      );
+    } catch (error) {
+      console.error(
+        "Failed to start server:",
+        error
+      );
+
+      process.exit(1);
+    }
+  };
 
 startServer();
