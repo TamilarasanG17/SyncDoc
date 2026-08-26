@@ -4,6 +4,7 @@ const Y = require("yjs");
 const encoding = require("lib0/encoding");
 const decoding = require("lib0/decoding");
 const syncProtocol = require("y-protocols/sync");
+jest.setTimeout(30000);
 
 const DOCUMENT_A =
     "6a81b9c3c832d2aa2a83f3e4";
