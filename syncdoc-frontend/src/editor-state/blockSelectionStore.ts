@@ -1,19 +1,69 @@
-import { createContext, useContext } from "react";
-import type { BlockSelectionState, SelectionRange } from "./types";
+import { useSyncExternalStore } from "react";
+import type { SelectionRange } from "./types";
 
-export interface BlockSelectionContextValue extends BlockSelectionState {
-  setActiveBlock: (blockId: string | null) => void;
-  setSelection: (selection: SelectionRange | null) => void;
+interface StoreState {
+  activeBlockId: string | null;
+  selection: SelectionRange | null;
 }
 
-export const BlockSelectionContext = createContext<BlockSelectionContextValue | null>(null);
+type Listener = () => void;
 
-export function useBlockSelection(): BlockSelectionContextValue {
-  const context = useContext(BlockSelectionContext);
+function createBlockSelectionStore() {
+  let state: StoreState = { activeBlockId: null, selection: null };
+  const listeners = new Set<Listener>();
 
-  if (!context) {
-    throw new Error("useBlockSelection must be used within a BlockSelectionProvider");
-  }
+  const emit = () => {
+    listeners.forEach((listener) => listener());
+  };
 
-  return context;
+  return {
+    subscribe(listener: Listener) {
+      listeners.add(listener);
+      return () => {
+        listeners.delete(listener);
+      };
+    },
+    getSnapshot(): StoreState {
+      return state;
+    },
+    setActiveBlock(blockId: string | null) {
+      if (state.activeBlockId === blockId) return;
+      state = { activeBlockId: blockId, selection: blockId ? state.selection : null };
+      emit();
+    },
+    setSelection(selection: SelectionRange | null) {
+      state = { ...state, selection };
+      emit();
+    },
+    reset() {
+      state = { activeBlockId: null, selection: null };
+      emit();
+    },
+  };
+}
+
+export const blockSelectionStore = createBlockSelectionStore();
+
+// Atomic subscriptions: each hook only re-renders the component that
+// called it when ITS OWN relevant slice actually changes — not on every
+// keystroke or focus change elsewhere in the document.
+
+export function useIsBlockActive(blockId: string): boolean {
+  return useSyncExternalStore(blockSelectionStore.subscribe, () =>
+    blockSelectionStore.getSnapshot().activeBlockId === blockId
+  );
+}
+
+export function useBlockSelectionRange(blockId: string): SelectionRange | null {
+  return useSyncExternalStore(blockSelectionStore.subscribe, () => {
+    const snapshot = blockSelectionStore.getSnapshot();
+    return snapshot.activeBlockId === blockId ? snapshot.selection : null;
+  });
+}
+
+export function useActiveBlockId(): string | null {
+  return useSyncExternalStore(
+    blockSelectionStore.subscribe,
+    () => blockSelectionStore.getSnapshot().activeBlockId
+  );
 }

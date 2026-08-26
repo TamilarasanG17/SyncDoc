@@ -8,11 +8,12 @@ function CodeBlock({ block, onChangeContent }: BlockComponentProps) {
         <span>Code</span>
       </div>
       <EditableField
-        as="textarea"
-        value={block.content}
-        onChange={onChangeContent}
-        className="block-code-input"
-      />
+  blockId={block.id}
+  as="textarea"
+  value={block.content}
+  onChange={onChangeContent}
+  className="block-code-input"
+/>
     </div>
   );
 }
