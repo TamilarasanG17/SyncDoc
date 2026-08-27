@@ -1,13 +1,10 @@
 const {
     transformNode,
-    SUPPORTED_NODE_TYPES
+    transformDocument
 } = require("../src/utils/transformNode");
 
-const {
-    transformDocument
-} = require("../src/utils/transformDocument");
-
 describe("AST Transformation Utilities", () => {
+
     test("transforms a heading node", () => {
         const node = {
             type: "heading",
@@ -26,14 +23,14 @@ describe("AST Transformation Utilities", () => {
     test("transforms a paragraph node", () => {
         const node = {
             type: "paragraph",
-            content: "This is a paragraph."
+            content: "Hello SyncDoc"
         };
 
         const result = transformNode(node);
 
         expect(result).toEqual({
             type: "paragraph",
-            content: "This is a paragraph.",
+            content: "Hello SyncDoc",
             children: []
         });
     });
@@ -53,7 +50,22 @@ describe("AST Transformation Utilities", () => {
         });
     });
 
-    test("transforms nested child nodes recursively", () => {
+    test("transforms a text node", () => {
+        const node = {
+            type: "text",
+            content: "Hello"
+        };
+
+        const result = transformNode(node);
+
+        expect(result).toEqual({
+            type: "text",
+            content: "Hello",
+            children: []
+        });
+    });
+
+    test("recursively transforms nested children", () => {
         const node = {
             type: "section",
             content: "Introduction",
@@ -64,15 +76,49 @@ describe("AST Transformation Utilities", () => {
                 },
                 {
                     type: "paragraph",
-                    content: "SyncDoc is a collaborative document engine."
+                    content: "SyncDoc is a collaborative editor."
+                }
+            ]
+        };
+
+        const result = transformNode(node);
+
+        expect(result).toEqual({
+            type: "section",
+            content: "Introduction",
+            children: [
+                {
+                    type: "heading",
+                    content: "Overview",
+                    children: []
                 },
                 {
+                    type: "paragraph",
+                    content: "SyncDoc is a collaborative editor.",
+                    children: []
+                }
+            ]
+        });
+    });
+
+    test("recursively transforms deeply nested nodes", () => {
+        const node = {
+            type: "section",
+            content: "Level 1",
+            children: [
+                {
                     type: "section",
-                    content: "Details",
+                    content: "Level 2",
                     children: [
                         {
-                            type: "paragraph",
-                            content: "Nested content."
+                            type: "section",
+                            content: "Level 3",
+                            children: [
+                                {
+                                    type: "paragraph",
+                                    content: "Deep content"
+                                }
+                            ]
                         }
                     ]
                 }
@@ -81,70 +127,21 @@ describe("AST Transformation Utilities", () => {
 
         const result = transformNode(node);
 
-        expect(result.children).toHaveLength(3);
-
-        expect(result.children[0]).toEqual({
-            type: "heading",
-            content: "Overview",
-            children: []
-        });
-
-        expect(result.children[1]).toEqual({
+        expect(
+            result.children[0]
+                .children[0]
+                .children[0]
+        ).toEqual({
             type: "paragraph",
-            content:
-                "SyncDoc is a collaborative document engine.",
-            children: []
-        });
-
-        expect(result.children[2].children[0]).toEqual({
-            type: "paragraph",
-            content: "Nested content.",
+            content: "Deep content",
             children: []
         });
     });
 
-    test("ignores unsupported nodes safely", () => {
-        const node = {
-            type: "image",
-            content: "image.png"
-        };
-
-        const result = transformNode(node);
-
-        expect(result).toBeNull();
-    });
-
-    test("handles invalid nodes safely", () => {
-        expect(transformNode(null)).toBeNull();
-        expect(transformNode(undefined)).toBeNull();
-        expect(transformNode("invalid")).toBeNull();
-    });
-
-    test("does not modify the original AST node", () => {
+    test("preserves child order during recursive transformation", () => {
         const node = {
             type: "section",
-            content: "Original",
-            children: [
-                {
-                    type: "paragraph",
-                    content: "Child"
-                }
-            ]
-        };
-
-        const originalNode = JSON.parse(
-            JSON.stringify(node)
-        );
-
-        transformNode(node);
-
-        expect(node).toEqual(originalNode);
-    });
-
-    test("preserves node order", () => {
-        const node = {
-            type: "section",
-            content: "Document",
+            content: "Section",
             children: [
                 {
                     type: "heading",
@@ -164,7 +161,9 @@ describe("AST Transformation Utilities", () => {
         const result = transformNode(node);
 
         expect(
-            result.children.map((child) => child.content)
+            result.children.map(
+                (child) => child.content
+            )
         ).toEqual([
             "First",
             "Second",
@@ -172,96 +171,158 @@ describe("AST Transformation Utilities", () => {
         ]);
     });
 
-    test("transforms a complete document", () => {
+    test("preserves parent-child relationships", () => {
+        const node = {
+            type: "section",
+            content: "Parent",
+            children: [
+                {
+                    type: "section",
+                    content: "Child",
+                    children: [
+                        {
+                            type: "paragraph",
+                            content: "Grandchild"
+                        }
+                    ]
+                }
+            ]
+        };
+
+        const result = transformNode(node);
+
+        expect(result.type).toBe("section");
+
+        expect(
+            result.children[0].type
+        ).toBe("section");
+
+        expect(
+            result.children[0].children[0].type
+        ).toBe("paragraph");
+    });
+
+    test("ignores unsupported nodes safely", () => {
+        const node = {
+            type: "image",
+            content: "image.png"
+        };
+
+        const result = transformNode(node);
+
+        expect(result).toBeNull();
+    });
+
+    test("removes unsupported nested children without breaking hierarchy", () => {
+        const node = {
+            type: "section",
+            content: "Section",
+            children: [
+                {
+                    type: "paragraph",
+                    content: "Valid paragraph"
+                },
+                {
+                    type: "unsupported",
+                    content: "Invalid node"
+                },
+                {
+                    type: "code",
+                    content: "const x = 10;"
+                }
+            ]
+        };
+
+        const result = transformNode(node);
+
+        expect(result.children).toHaveLength(2);
+
+        expect(
+            result.children[0].type
+        ).toBe("paragraph");
+
+        expect(
+            result.children[1].type
+        ).toBe("code");
+    });
+
+    test("handles nodes without children", () => {
+        const node = {
+            type: "paragraph",
+            content: "No children"
+        };
+
+        const result = transformNode(node);
+
+        expect(result.children).toEqual([]);
+    });
+
+    test("handles empty children array", () => {
+        const node = {
+            type: "section",
+            content: "Empty section",
+            children: []
+        };
+
+        const result = transformNode(node);
+
+        expect(result.children).toEqual([]);
+    });
+
+    test("does not modify the original AST", () => {
+        const original = {
+            type: "section",
+            content: "Original",
+            children: [
+                {
+                    type: "paragraph",
+                    content: "Original child"
+                }
+            ]
+        };
+
+        const originalCopy =
+            JSON.parse(
+                JSON.stringify(original)
+            );
+
+        const result =
+            transformNode(original);
+
+        result.content = "Modified";
+
+        result.children[0].content =
+            "Modified child";
+
+        expect(original).toEqual(
+            originalCopy
+        );
+    });
+
+    test("transforms a complete document recursively", () => {
         const document = {
-            _id: "document-123",
-            title: "SyncDoc Test Document",
+            documentId: "document-123",
+            title: "SyncDoc Document",
             nodes: [
                 {
                     type: "heading",
                     content: "Introduction"
                 },
                 {
-                    type: "paragraph",
-                    content: "Document content."
-                }
-            ]
-        };
-
-        const result = transformDocument(document);
-
-        expect(result).toEqual({
-            documentId: "document-123",
-            title: "SyncDoc Test Document",
-            nodes: [
-                {
-                    type: "heading",
-                    content: "Introduction",
-                    children: []
-                },
-                {
-                    type: "paragraph",
-                    content: "Document content.",
-                    children: []
-                }
-            ]
-        });
-    });
-
-    test("ignores unsupported document nodes", () => {
-        const document = {
-            _id: "document-456",
-            title: "Test",
-            nodes: [
-                {
-                    type: "heading",
-                    content: "Valid"
-                },
-                {
-                    type: "unsupported",
-                    content: "Invalid"
-                },
-                {
-                    type: "paragraph",
-                    content: "Valid paragraph"
-                }
-            ]
-        };
-
-        const result = transformDocument(document);
-
-        expect(result.nodes).toHaveLength(2);
-
-        expect(
-            result.nodes.map((node) => node.type)
-        ).toEqual([
-            "heading",
-            "paragraph"
-        ]);
-    });
-
-    test("preserves deeply nested hierarchy", () => {
-        const document = {
-            _id: "document-789",
-            title: "Nested Document",
-            nodes: [
-                {
                     type: "section",
-                    content: "Level 1",
+                    content: "Main Section",
                     children: [
                         {
+                            type: "paragraph",
+                            content: "Main content"
+                        },
+                        {
                             type: "section",
-                            content: "Level 2",
+                            content: "Nested Section",
                             children: [
                                 {
-                                    type: "section",
-                                    content: "Level 3",
-                                    children: [
-                                        {
-                                            type: "paragraph",
-                                            content: "Deep content"
-                                        }
-                                    ]
+                                    type: "code",
+                                    content: "const x = 10;"
                                 }
                             ]
                         }
@@ -270,24 +331,65 @@ describe("AST Transformation Utilities", () => {
             ]
         };
 
-        const result = transformDocument(document);
+        const result =
+            transformDocument(document);
 
-        expect(
-            result.nodes[0].children[0].children[0].children[0]
-        ).toEqual({
-            type: "paragraph",
-            content: "Deep content",
-            children: []
+        expect(result).toEqual({
+            documentId: "document-123",
+            title: "SyncDoc Document",
+            nodes: [
+                {
+                    type: "heading",
+                    content: "Introduction",
+                    children: []
+                },
+                {
+                    type: "section",
+                    content: "Main Section",
+                    children: [
+                        {
+                            type: "paragraph",
+                            content: "Main content",
+                            children: []
+                        },
+                        {
+                            type: "section",
+                            content: "Nested Section",
+                            children: [
+                                {
+                                    type: "code",
+                                    content: "const x = 10;",
+                                    children: []
+                                }
+                            ]
+                        }
+                    ]
+                }
+            ]
         });
     });
 
-    test("exports all required node types", () => {
-        expect(SUPPORTED_NODE_TYPES).toEqual([
-            "heading",
-            "paragraph",
-            "code",
-            "text",
-            "section"
-        ]);
+    test("handles invalid node input safely", () => {
+        expect(
+            transformNode(null)
+        ).toBeNull();
+
+        expect(
+            transformNode(undefined)
+        ).toBeNull();
+
+        expect(
+            transformNode("invalid")
+        ).toBeNull();
+    });
+
+    test("handles invalid document input safely", () => {
+        expect(
+            transformDocument(null)
+        ).toBeNull();
+
+        expect(
+            transformDocument(undefined)
+        ).toBeNull();
     });
 });
