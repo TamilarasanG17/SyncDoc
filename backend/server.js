@@ -242,6 +242,9 @@ server.on("upgrade", (request, socket, head) => {
 webSocketServer.on(
   "connection",
   (webSocket, request) => {
+    console.log(
+  "[WS DEBUG] connection handler entered"
+);
     const documentId = webSocket.documentId;
 
     /*
@@ -292,6 +295,17 @@ webSocketServer.on(
       console.log(
         `Before Yjs setup: ${documentId}`
       );
+      const yjsDoc = require("@y/websocket-server/utils").getYDoc(
+  documentId,
+  true
+);
+
+yjsDoc.on("error", (error) => {
+  console.error(
+    "[YJS DOC ERROR]",
+    error
+  );
+});
 
       setupWSConnection(
         webSocket,
@@ -338,12 +352,7 @@ webSocketServer.on(
     |--------------------------------------------------------------------------
     */
 
-    sendJson(webSocket, {
-      type: "connection",
-      clientId: webSocket.clientId,
-      documentId,
-    });
-
+    
     /*
     |--------------------------------------------------------------------------
     | Custom Control Messages
@@ -355,7 +364,15 @@ webSocketServer.on(
     |--------------------------------------------------------------------------
     */
 
-    webSocket.on("message", (message, isBinary) => {
+   /* webSocket.on("message", (message, isBinary) => {
+       console.log(
+     "[CUSTOM WS] message listener triggered",
+    "[Custom WS] message received:",
+    "isBinary =", isBinary,
+    "type =", typeof message,
+    "length =", message?.length
+  );
+
       if (isBinary) {
         return;
       }
@@ -381,7 +398,7 @@ webSocketServer.on(
       |--------------------------------------------------------------------------
       */
 
-      if (payload.type === "block:lock") {
+      /* if (payload.type === "block:lock") {
         const { blockId } = payload;
 
         if (!blockId) {
@@ -421,7 +438,7 @@ webSocketServer.on(
       |--------------------------------------------------------------------------
       */
 
-      if (payload.type === "block:unlock") {
+     /* if (payload.type === "block:unlock") {
         const { blockId } = payload;
 
         if (!blockId) {
@@ -517,12 +534,12 @@ webSocketServer.on(
     |--------------------------------------------------------------------------
     */
 
-    webSocket.on("error", (error) => {
-      console.error(
-        `WebSocket error for document ${documentId}:`,
-        error.message
-      );
-    });
+   webSocket.on("error", (error) => {
+  console.error(
+    `[WS ERROR] document ${documentId}:`,
+    error
+  );
+});
   }
 );
 
