@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useCollaboration } from "../collaboration/useCollaboration";
 import { getLocalUser } from "../collaboration/localUser";
 
@@ -18,9 +18,12 @@ export function useLocalAwareness() {
     };
   }, [providerRef, status, localUser]);
 
-  const setEditingBlock = (blockId: string | null) => {
-    providerRef.current?.awareness.setLocalStateField("editingBlockId", blockId);
-  };
+  const setEditingBlock = useCallback(
+    (blockId: string | null) => {
+      providerRef.current?.awareness.setLocalStateField("editingBlockId", blockId);
+    },
+    [providerRef]
+  );
 
   return { setEditingBlock, localUserId: localUser.id };
 }

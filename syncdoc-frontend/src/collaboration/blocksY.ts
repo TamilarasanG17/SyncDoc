@@ -1,5 +1,5 @@
 import * as Y from "yjs";
-import type { DocumentBlock } from "../types";
+import type { DocumentBlock, EditRange } from "../types";
 
 export function blockToYMap(block: DocumentBlock): Y.Map<unknown> {
   const map = new Y.Map();
@@ -25,19 +25,52 @@ export function blockToYMap(block: DocumentBlock): Y.Map<unknown> {
   return map;
 }
 
-export function yMapToBlock(map: Y.Map<unknown>): DocumentBlock {
-  const childrenArray = map.get("children") as Y.Array<Y.Map<unknown>> | undefined;
+// One cached DocumentBlock per Y.Map instance. Reused across renders unless
+// this block's own fields changed, or one of its children's cached object
+// changed (checked by reference, recursively bottom-up).
+const blockCache = new WeakMap<Y.Map<unknown>, DocumentBlock>();
 
-  return {
-    id: map.get("id") as string,
-    type: map.get("type") as DocumentBlock["type"],
-    content: map.get("content") as string,
-    level: map.get("level") as number | undefined,
-    lastEditRange: map.get("lastEditRange") as DocumentBlock["lastEditRange"],
-    children: childrenArray ? childrenArray.toArray().map(yMapToBlock) : undefined,
-  };
+function sameEditRange(a?: EditRange, b?: EditRange): boolean {
+  if (a === b) return true;
+  if (!a || !b) return false;
+  return a.start === b.start && a.end === b.end;
 }
 
+export function yMapToBlock(map: Y.Map<unknown>): DocumentBlock {
+  const childrenYArray = map.get("children") as Y.Array<Y.Map<unknown>> | undefined;
+  const children = childrenYArray ? childrenYArray.toArray().map(yMapToBlock) : undefined;
+
+  const cached = blockCache.get(map);
+
+  const id = map.get("id") as string;
+  const type = map.get("type") as DocumentBlock["type"];
+  const content = map.get("content") as string;
+  const level = map.get("level") as number | undefined;
+  const lastEditRange = map.get("lastEditRange") as EditRange | undefined;
+
+  const childrenUnchanged =
+    children === undefined
+      ? cached?.children === undefined
+      : !!cached?.children &&
+        children.length === cached.children.length &&
+        children.every((child, i) => child === cached.children![i]);
+
+  const selfUnchanged =
+    !!cached &&
+    cached.id === id &&
+    cached.type === type &&
+    cached.content === content &&
+    cached.level === level &&
+    sameEditRange(cached.lastEditRange, lastEditRange);
+
+  if (cached && selfUnchanged && childrenUnchanged) {
+    return cached;
+  }
+
+  const block: DocumentBlock = { id, type, content, level, lastEditRange, children };
+  blockCache.set(map, block);
+  return block;
+}
 
 export function yArrayToBlocks(array: Y.Array<Y.Map<unknown>>): DocumentBlock[] {
   return array.toArray().map(yMapToBlock);

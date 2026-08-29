@@ -1,3 +1,4 @@
+import { memo } from "react";
 import type { DocumentBlock, EditRange } from "../../../types";
 import { blockRegistry } from "./blockRegistry";
 import BlockShell from "./BlockShell";
@@ -38,7 +39,7 @@ function BlockRenderer({ block, locks, onEditBlock, onChangeBlockContent }: Bloc
         <div className="ast-node-children">
           {block.children!.map((child) => (
             <div className="editor-block" key={child.id}>
-              <BlockRenderer
+              <MemoizedBlockRenderer
                 block={child}
                 locks={locks}
                 onEditBlock={onEditBlock}
@@ -52,4 +53,6 @@ function BlockRenderer({ block, locks, onEditBlock, onChangeBlockContent }: Bloc
   );
 }
 
-export default BlockRenderer;
+const MemoizedBlockRenderer = memo(BlockRenderer);
+
+export default MemoizedBlockRenderer;
