@@ -1,19 +1,19 @@
-import { useEffect, useRef, useState, type ChangeEvent } from "react";
+import { useEffect, useRef, useState, type ChangeEvent, type SyntheticEvent } from "react";
+import { blockSelectionStore } from "../../editor-state/blockSelectionStore";
 
 interface EditableFieldProps {
+  blockId: string;
   value: string;
   onChange: (value: string) => void;
   as?: "input" | "textarea";
   className?: string;
 }
 
-function EditableField({ value, onChange, as = "input", className }: EditableFieldProps) {
+function EditableField({ blockId, value, onChange, as = "input", className }: EditableFieldProps) {
   const [draft, setDraft] = useState(value);
   const isFocusedRef = useRef(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Only accept incoming (remote) updates while NOT focused — otherwise a
-  // concurrent edit from another client would overwrite what's being typed.
   useEffect(() => {
     if (!isFocusedRef.current) {
       setDraft(value);
@@ -39,10 +39,12 @@ function EditableField({ value, onChange, as = "input", className }: EditableFie
 
   const handleFocus = () => {
     isFocusedRef.current = true;
+    blockSelectionStore.setActiveBlock(blockId);
   };
 
   const handleBlur = () => {
     isFocusedRef.current = false;
+    blockSelectionStore.setActiveBlock(null);
 
     if (debounceRef.current) {
       clearTimeout(debounceRef.current);
@@ -50,27 +52,29 @@ function EditableField({ value, onChange, as = "input", className }: EditableFie
     }
   };
 
+  const handleSelect = (event: SyntheticEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const target = event.currentTarget;
+    blockSelectionStore.setSelection({
+      blockId,
+      start: target.selectionStart ?? 0,
+      end: target.selectionEnd ?? 0,
+    });
+  };
+
+  const sharedProps = {
+    className,
+    value: draft,
+    onChange: handleChange,
+    onFocus: handleFocus,
+    onBlur: handleBlur,
+    onSelect: handleSelect,
+  };
+
   if (as === "textarea") {
-    return (
-      <textarea
-        className={className}
-        value={draft}
-        onChange={handleChange}
-        onFocus={handleFocus}
-        onBlur={handleBlur}
-      />
-    );
+    return <textarea {...sharedProps} />;
   }
 
-  return (
-    <input
-      className={className}
-      value={draft}
-      onChange={handleChange}
-      onFocus={handleFocus}
-      onBlur={handleBlur}
-    />
-  );
+  return <input {...sharedProps} />;
 }
 
 export default EditableField;

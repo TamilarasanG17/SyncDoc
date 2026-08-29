@@ -6,11 +6,12 @@ function HeadingBlock({ block, onChangeContent }: BlockComponentProps) {
 
   return (
     <EditableField
-      as="input"
-      value={block.content}
-      onChange={onChangeContent}
-      className={`block-heading block-heading-${level}`}
-    />
+  blockId={block.id}
+  as="input"
+  value={block.content}
+  onChange={onChangeContent}
+  className={`block-heading block-heading-${level}`}
+/>
   );
 }
 
