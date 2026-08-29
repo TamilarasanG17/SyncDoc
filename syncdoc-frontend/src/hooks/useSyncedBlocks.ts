@@ -3,7 +3,7 @@ import * as Y from "yjs";
 
 import { useCollaboration } from "../collaboration/useCollaboration";
 import { blockToYMap, yArrayToBlocks, findBlockYMap } from "../collaboration/blocksY";
-import type { DocumentBlock } from "../types";
+import type { DocumentBlock, EditRange } from "../types";
 
 export function useSyncedBlocks(initialBlocks: DocumentBlock[]) {
   const { ydoc, providerRef } = useCollaboration();
@@ -44,12 +44,15 @@ export function useSyncedBlocks(initialBlocks: DocumentBlock[]) {
   }, [sharedBlocks, providerRef]);
 
   const updateBlockContent = useCallback(
-    (blockId: string, content: string) => {
+    (blockId: string, content: string, range?: EditRange) => {
       const map = findBlockYMap(sharedBlocks, blockId);
       if (!map) return;
 
       ydoc.transact(() => {
         map.set("content", content);
+        if (range) {
+          map.set("lastEditRange", range);
+        }
       });
     },
     [sharedBlocks, ydoc]

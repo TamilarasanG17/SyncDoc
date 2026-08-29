@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState, type ChangeEvent, type SyntheticEvent } from "react";
 import { blockSelectionStore } from "../../editor-state/blockSelectionStore";
+import type { EditRange } from "../../types";
 
 interface EditableFieldProps {
   blockId: string;
   value: string;
-  onChange: (value: string) => void;
+  onChange: (value: string, range?: EditRange) => void;
   as?: "input" | "textarea";
   className?: string;
 }
@@ -13,6 +14,7 @@ function EditableField({ blockId, value, onChange, as = "input", className }: Ed
   const [draft, setDraft] = useState(value);
   const isFocusedRef = useRef(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingRangeRef = useRef<EditRange | undefined>(undefined);
 
   useEffect(() => {
     if (!isFocusedRef.current) {
@@ -26,15 +28,22 @@ function EditableField({ blockId, value, onChange, as = "input", className }: Ed
     };
   }, []);
 
-  const scheduleSync = (next: string) => {
+  const scheduleSync = (next: string, range?: EditRange) => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => onChange(next), 200);
+    pendingRangeRef.current = range;
+    debounceRef.current = setTimeout(() => onChange(next, pendingRangeRef.current), 200);
   };
 
   const handleChange = (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const next = event.target.value;
+    const range: EditRange = {
+      start: event.target.selectionStart ?? next.length,
+      end: event.target.selectionEnd ?? next.length,
+    };
+
     setDraft(next);
-    scheduleSync(next);
+    blockSelectionStore.setSelection({ blockId, ...range });
+    scheduleSync(next, range);
   };
 
   const handleFocus = () => {
@@ -48,7 +57,7 @@ function EditableField({ blockId, value, onChange, as = "input", className }: Ed
 
     if (debounceRef.current) {
       clearTimeout(debounceRef.current);
-      onChange(draft);
+      onChange(draft, pendingRangeRef.current);
     }
   };
 

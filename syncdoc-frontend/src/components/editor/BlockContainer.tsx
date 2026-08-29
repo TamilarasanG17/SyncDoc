@@ -1,4 +1,4 @@
-import type { DocumentBlock } from "../../types/index";
+import type { DocumentBlock, EditRange } from "../../types/index";
 import BlockRenderer from "./blocks/BlockRenderer";
 import { useBlockLocks } from "../../hooks/useBlockLocks";
 
@@ -6,7 +6,7 @@ interface BlockContainerProps {
   blocks: DocumentBlock[];
   localUserId: string;
   onEditBlock: (blockId: string | null) => void;
-  onChangeBlockContent: (blockId: string, content: string) => void;
+  onChangeBlockContent: (blockId: string, content: string, range?: EditRange) => void;
 }
 
 function BlockContainer({ blocks, localUserId, onEditBlock, onChangeBlockContent }: BlockContainerProps) {
