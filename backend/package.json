@@ -14,8 +14,10 @@
   "dependencies": {
     "@y/websocket-server": "^0.1.1",
     "cors": "^2.8.6",
+    "dompurify": "^3.4.14",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
+    "jsdom": "^29.1.1",
     "mongoose": "^9.9.2",
     "ws": "^8.21.3",
     "y-websocket": "^3.1.0",
