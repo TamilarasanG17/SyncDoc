@@ -12,6 +12,10 @@ export function blockToYMap(block: DocumentBlock): Y.Map<unknown> {
     map.set("level", block.level);
   }
 
+  if (block.lastEditRange) {
+    map.set("lastEditRange", block.lastEditRange);
+  }
+
   const childrenArray = new Y.Array<Y.Map<unknown>>();
   if (block.children) {
     childrenArray.push(block.children.map(blockToYMap));
@@ -29,9 +33,11 @@ export function yMapToBlock(map: Y.Map<unknown>): DocumentBlock {
     type: map.get("type") as DocumentBlock["type"],
     content: map.get("content") as string,
     level: map.get("level") as number | undefined,
+    lastEditRange: map.get("lastEditRange") as DocumentBlock["lastEditRange"],
     children: childrenArray ? childrenArray.toArray().map(yMapToBlock) : undefined,
   };
 }
+
 
 export function yArrayToBlocks(array: Y.Array<Y.Map<unknown>>): DocumentBlock[] {
   return array.toArray().map(yMapToBlock);

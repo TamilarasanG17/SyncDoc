@@ -1,4 +1,4 @@
-import type { DocumentBlock } from "../../../types";
+import type { DocumentBlock, EditRange } from "../../../types";
 import { blockRegistry } from "./blockRegistry";
 import BlockShell from "./BlockShell";
 import type { BlockLocks } from "../../../hooks/useBlockLocks";
@@ -7,7 +7,7 @@ interface BlockRendererProps {
   block: DocumentBlock;
   locks: BlockLocks;
   onEditBlock: (blockId: string | null) => void;
-  onChangeBlockContent: (blockId: string, content: string) => void;
+  onChangeBlockContent: (blockId: string, content: string, range?: EditRange) => void;
 }
 
 function BlockRenderer({ block, locks, onEditBlock, onChangeBlockContent }: BlockRendererProps) {
@@ -30,7 +30,7 @@ function BlockRenderer({ block, locks, onEditBlock, onChangeBlockContent }: Bloc
       >
         <BlockComponent
           block={block}
-          onChangeContent={(content) => onChangeBlockContent(block.id, content)}
+          onChangeContent={(content, range) => onChangeBlockContent(block.id, content, range)}
         />
       </BlockShell>
 
