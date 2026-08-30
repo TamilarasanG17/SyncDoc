@@ -1,4 +1,5 @@
 require("dotenv").config();
+const Y = require("yjs");
 
 const express = require("express");
 const cors = require("cors");
@@ -7,6 +8,8 @@ const crypto = require("crypto");
 const { WebSocketServer } = require("ws");
 
 const { setupWSConnection } = require("@y/websocket-server/utils");
+const { LeveldbPersistence } = require("y-leveldb");
+const persistence = new LeveldbPersistence("./yjs-data");
 
 const connectDB = require("./src/config/db");
 const documentRoutes = require("./src/routes/documentRoutes");
@@ -241,7 +244,7 @@ server.on("upgrade", (request, socket, head) => {
 
 webSocketServer.on(
   "connection",
-  (webSocket, request) => {
+  async (webSocket, request) => {
     console.log(
   "[WS DEBUG] connection handler entered"
 );
@@ -295,10 +298,41 @@ webSocketServer.on(
       console.log(
         `Before Yjs setup: ${documentId}`
       );
-      const yjsDoc = require("@y/websocket-server/utils").getYDoc(
+     const yjsDoc = require("@y/websocket-server/utils").getYDoc(
   documentId,
   true
 );
+console.log(
+  `[PERSISTENCE DEBUG] Loading document from LevelDB: ${documentId}`
+);
+
+const persistedDoc = await persistence.getYDoc(documentId);
+
+if (persistedDoc) {
+  const persistedUpdate = Y.encodeStateAsUpdate(persistedDoc);
+  Y.applyUpdate(yjsDoc, persistedUpdate);
+
+  console.log(
+    `[PERSISTENCE DEBUG] Restored document from LevelDB: ${documentId}`
+  );
+}
+
+yjsDoc.on("update", async (update) => {
+  try {
+    await persistence.storeUpdate(documentId, update);
+
+    console.log(
+      `[PERSISTENCE DEBUG] Update stored: ${documentId}`
+    );
+  } catch (error) {
+    console.error(
+      `[PERSISTENCE ERROR] Failed to store update for ${documentId}:`,
+      error
+    );
+  }
+});
+
+
 
 yjsDoc.on("error", (error) => {
   console.error(
