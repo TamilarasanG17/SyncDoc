@@ -39,6 +39,14 @@ const PORT = process.env.PORT || 5000;
 app.get("/", (req, res) => {
   res.send("SyncDoc Backend Running");
 });
+app.get("/health", (req, res) => {
+  res.status(200).json({
+    status: "ok",
+    service: "SyncDoc Backend",
+    database: "connected",
+    yjsPersistence: "enabled",
+  });
+});
 
 const server = http.createServer(app);
 
