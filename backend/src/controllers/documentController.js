@@ -1,113 +1,65 @@
-const Document = require("../models/document");
-const Node = require("../models/node");
+import { Document } from '../models/Document.js';
 
-const createDocument = async (req, res) => {
-    try {
-        const { title } = req.body;
+import mongoose from 'mongoose';
 
-        const document = await Document.create({
-            title
-        });
+const newNodeId = () => new mongoose.Types.ObjectId().toString();
 
-        res.status(201).json(document);
-    } catch (error) {
-        res.status(500).json({
-            message: "Failed to create document",
-            error: error.message
-        });
-    }
-};
+const EMPTY_ROOT = () => ({
+  nodeId: 'root',
+  type: 'document',
+  attrs: {},
+  content: '',
+  children: [
+    {
+      nodeId: newNodeId(),
+      type: 'heading',
+      attrs: { level: 1 },
+      content: 'Untitled document',
+      children: [],
+    },
+    {
+      nodeId: newNodeId(),
+      type: 'paragraph',
+      attrs: {},
+      content: 'Start typing…',
+      children: [],
+    },
+  ],
+});
 
-const getDocuments = async (req, res) => {
-    try {
-        const documents = await Document.find()
-            .populate({
-                path: "nodes",
-                populate: {
-                    path: "children",
-                    populate: {
-                        path: "children"
-                    }
-                }
-            })
-            .sort({ createdAt: -1 });
+/** GET /api/documents - list documents (Week 1: "browsing documents") */
+export async function listDocuments(req, res) {
+  const docs = await Document.find({}, 'title ownerId collaborators updatedAt createdAt')
+    .sort({ updatedAt: -1 })
+    .lean();
+  res.json(docs);
+}
 
-        res.status(200).json(documents);
-    } catch (error) {
-        res.status(500).json({
-            message: "Failed to retrieve documents",
-            error: error.message
-        });
-    }
-};
+/** GET /api/documents/:id - fetch one document's current AST snapshot */
+export async function getDocument(req, res) {
+  const doc = await Document.findById(req.params.id).lean();
+  if (!doc) return res.status(404).json({ error: 'Document not found' });
+  res.json(doc);
+}
 
-const getDocumentById = async (req, res) => {
-    try {
-        const document = await Document.findById(req.params.id)
-            .populate({
-                path: "nodes",
-                populate: {
-                    path: "children",
-                    populate: {
-                        path: "children"
-                    }
-                }
-            });
+/** POST /api/documents - create a new document with a seed AST */
+export async function createDocument(req, res) {
+  const { title, ownerId } = req.body;
+  if (!ownerId) return res.status(400).json({ error: 'ownerId is required' });
 
-        if (!document) {
-            return res.status(404).json({
-                message: "Document not found"
-            });
-        }
+  const doc = new Document({
+    title: title || 'Untitled document',
+    ownerId,
+    collaborators: [ownerId],
+    root: EMPTY_ROOT(),
+  });
+  await doc.save();
+  res.status(201).json(doc);
+}
 
-        res.status(200).json(document);
-    } catch (error) {
-        res.status(500).json({
-            message: "Failed to retrieve document",
-            error: error.message
-        });
-    }
-};
-
-const createNodeForDocument = async (req, res) => {
-    try {
-        const { type, content, children } = req.body;
-
-        const document = await Document.findById(
-            req.params.documentId
-        );
-
-        if (!document) {
-            return res.status(404).json({
-                message: "Document not found"
-            });
-        }
-
-        const node = await Node.create({
-            type,
-            content,
-            children
-        });
-
-        document.nodes.push(node._id);
-
-        await document.save();
-
-        res.status(201).json({
-            message: "Node created and attached to document",
-            node
-        });
-    } catch (error) {
-        res.status(500).json({
-            message: "Failed to create node",
-            error: error.message
-        });
-    }
-};
-
-module.exports = {
-    createDocument,
-    getDocuments,
-    getDocumentById,
-    createNodeForDocument
-};
+/** DELETE /api/documents/:id */
+export async function deleteDocument(req, res) {
+  const deleted = await Document.findByIdAndDelete(req.params.id);
+  if (!deleted) return res.status(404).json({ error: 'Document not found' });
+  res.status(204).send();
+}
