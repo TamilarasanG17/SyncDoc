@@ -44,9 +44,6 @@ function createBlockSelectionStore() {
 
 export const blockSelectionStore = createBlockSelectionStore();
 
-// Atomic subscriptions: each hook only re-renders the component that
-// called it when ITS OWN relevant slice actually changes — not on every
-// keystroke or focus change elsewhere in the document.
 
 export function useIsBlockActive(blockId: string): boolean {
   return useSyncExternalStore(blockSelectionStore.subscribe, () =>
