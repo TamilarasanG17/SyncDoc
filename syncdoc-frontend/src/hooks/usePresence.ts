@@ -17,8 +17,6 @@ export function usePresence(localUserId: string): PresenceEntry[] {
     entries.forEach(({ state }) => {
       if (!state.user) return;
 
-      // Keep the latest state per user id — a reconnect can briefly produce
-      // two awareness entries for the same person.
       seen.set(state.user.id, {
         user: state.user,
         editingBlockId: state.editingBlockId ?? null,
