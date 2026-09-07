@@ -1,17 +1,18 @@
-const express = require("express");
+import { Router } from 'express';
+import {
+  listDocuments,
+  getDocument,
+  createDocument,
+  deleteDocument,
+} from '../controllers/documentController.js';
+import { exportDocument } from '../controllers/exportController.js';
 
-const {
-    createDocument,
-    getDocuments,
-    getDocumentById,
-    createNodeForDocument
-} = require("../controllers/documentController");
+const router = Router();
 
-const router = express.Router();
+router.get('/', listDocuments);
+router.post('/', createDocument);
+router.get('/:id', getDocument);
+router.delete('/:id', deleteDocument);
+router.get('/:id/export/:format', exportDocument);
 
-router.post("/", createDocument);
-router.get("/", getDocuments);
-router.get("/:id", getDocumentById);
-router.post("/:documentId/nodes", createNodeForDocument);
-
-module.exports = router;
+export default router;
