@@ -1,17 +1,27 @@
-const express = require("express");
+import { Router } from 'express';
+import {
+  listDocuments,
+  getDocument,
+  createDocument,
+  deleteDocument,
+  addCollaborator,
+} from '../controllers/documentController.js';
 
-const {
-    createDocument,
-    getDocuments,
-    getDocumentById,
-    createNodeForDocument
-} = require("../controllers/documentController");
+import { exportDocument } from '../controllers/exportController.js';
+import { requireAuth } from '../middleware/authMiddleware.js';
 
-const router = express.Router();
+const router = Router();
 
-router.post("/", createDocument);
-router.get("/", getDocuments);
-router.get("/:id", getDocumentById);
-router.post("/:documentId/nodes", createNodeForDocument);
+router.get('/', requireAuth, listDocuments);
 
-module.exports = router;
+router.post('/', requireAuth, createDocument);
+
+router.get('/:id', requireAuth, getDocument);
+
+router.delete('/:id', requireAuth, deleteDocument);
+
+router.post('/:id/collaborators', requireAuth, addCollaborator);
+
+router.get('/:id/export/:format', requireAuth, exportDocument);
+
+export default router;
