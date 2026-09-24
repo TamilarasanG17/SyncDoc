@@ -19,7 +19,15 @@ export async function exportDocument(req, res) {
     return res.status(400).json({ error: `Unsupported export format "${format}". Use markdown, html, or pdf.` });
   }
 
-  const doc = await Document.findById(id).lean();
+  const userId = req.user.id;
+
+const doc = await Document.findOne({
+  _id: id,
+  $or: [
+    { ownerId: userId },
+    { collaborators: userId }
+  ]
+}).lean();
   if (!doc) return res.status(404).json({ error: 'Document not found' });
 
   const filenameBase = slugify(doc.title);
